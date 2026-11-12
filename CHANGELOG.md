@@ -33,6 +33,7 @@ First public release.
   - A live preview, "Copy to clipboard" and "Save as file…".
 - Your wins and settings are saved as plain JSON files in the data folder on your computer.
 - An automatic copy of your wins in the `backups` folder before the first change of each day. The newest 14 copies are kept.
+- Safe saving: a win is written to a new file first and then swapped in, so a crash cannot leave half a file. If the wins file cannot be read, or another program changed it while Win Log was running, Win Log keeps that file under a new name and tells you.
 - "Settings…" > "Your data":
   - "Open data folder".
   - "Export backup…" saves your wins as a `.json` file.
