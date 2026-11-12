@@ -10,25 +10,45 @@
 // - An unreadable wins.json is never overwritten. It is moved aside and the newest
 //   good backup is loaded.
 // - Before the first save of each day, wins.json is copied to backups/.
+// - The live data never leaves this folder. The optional "backup folder" only gets copies.
 
 const fsp = require('node:fs/promises');
+const os = require('node:os');
 const path = require('node:path');
 const { localDate, localFileStamp } = require('../lib/dates');
 const { isValidTime, isValidDays } = require('../lib/schedule');
 const { editEntry: editEntryData, deleteEntry: deleteEntryData } = require('../lib/entries');
+const {
+  SCHEMA_VERSION,
+  planImport,
+  safeDeviceName,
+  folderBackupName,
+  folderBackupsOf,
+  folderBackupsToDelete,
+} = require('../lib/backup');
 const {
   defaultShortcut,
   isValidAccelerator,
   LEGACY_DEFAULT_SHORTCUT,
 } = require('../lib/accelerator');
 
-const SCHEMA_VERSION = 1;
 const BACKUPS_KEPT = 14;
 const BACKUP_NAME_RE = /^wins-\d{4}-\d{2}-\d{2}\.json$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_PATH_LENGTH = 4096;
+const FOLDER_BACKUP_WAIT_MS = 3000; // how long quitting waits for a slow backup folder
 
 function emptyData() {
   return { schemaVersion: SCHEMA_VERSION, entries: [] };
+}
+
+/** The exact text of a data file. */
+function serialize(value) {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function isFolderPath(value) {
+  return typeof value === 'string' && value !== '' && value.length <= MAX_PATH_LENGTH && path.isAbsolute(value);
 }
 
 /** Settings used when settings.json is missing or a field in it is invalid. */
@@ -39,6 +59,8 @@ function defaultSettings(platform = process.platform) {
     shortcut: defaultShortcut(platform),
     openAtLogin: true, // what the user chose; the OS login item is the source of truth (loginItem.js)
     loginItemSetUp: false, // true once the installed app has set up the login item on its first run
+    welcomeShown: false, // true once the first-run welcome window has been shown
+    backupFolder: null, // a folder the user chose for extra daily backups, or null
     lastPromptedDate: null,
   };
 }
@@ -56,6 +78,8 @@ function normalizeSettings(raw, platform = process.platform) {
       isValidAccelerator(s.shortcut) && s.shortcut !== LEGACY_DEFAULT_SHORTCUT ? s.shortcut : d.shortcut,
     openAtLogin: typeof s.openAtLogin === 'boolean' ? s.openAtLogin : d.openAtLogin,
     loginItemSetUp: s.loginItemSetUp === true,
+    welcomeShown: s.welcomeShown === true,
+    backupFolder: isFolderPath(s.backupFolder) ? s.backupFolder : null,
     lastPromptedDate:
       typeof s.lastPromptedDate === 'string' && DATE_RE.test(s.lastPromptedDate)
         ? s.lastPromptedDate
@@ -89,6 +113,16 @@ function parseWins(raw) {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Resolves when `promise` does, or after `ms`, whichever comes first. Never rejects. */
+function settledWithin(promise, ms) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(resolve, ms);
+    timer.unref?.();
+  });
+  return Promise.race([promise.catch(() => {}), timeout]).finally(() => clearTimeout(timer));
+}
 
 // On Windows, antivirus or the search indexer can hold the file for a moment.
 async function renameWithRetry(from, to) {
@@ -140,7 +174,7 @@ async function writeFileAtomic(file, text, tmp = `${file}.tmp`) {
 }
 
 function writeJsonAtomic(file, value) {
-  return writeFileAtomic(file, `${JSON.stringify(value, null, 2)}\n`);
+  return writeFileAtomic(file, serialize(value));
 }
 
 async function exists(file) {
@@ -154,17 +188,23 @@ async function exists(file) {
 
 /**
  * @param {string} dir  folder that holds wins.json (the app's userData folder)
- * @param {{ now?: () => Date, platform?: string }} [options]  both are for tests
+ * @param {{ now?: () => Date, platform?: string, hostname?: string }} [options]  all for tests
  */
-function createStore(dir, { now = () => new Date(), platform = process.platform } = {}) {
+function createStore(dir, { now = () => new Date(), platform = process.platform, hostname = os.hostname() } = {}) {
   const winsPath = path.join(dir, 'wins.json');
   const settingsPath = path.join(dir, 'settings.json');
   const backupDir = path.join(dir, 'backups');
+  const device = safeDeviceName(hostname);
 
   let data = null;
   let settings = null;
   let queue = Promise.resolve(); // never rejects
   let backedUpOn = null; // local date of the last backup this session
+
+  // Copies to the user's backup folder run on their own chain: a slow or missing cloud
+  // folder must never hold up, or fail, saving a win.
+  let folderQueue = Promise.resolve(); // never rejects
+  let folderStatus = { savedAt: null, error: null }; // result of the latest copy this session
 
   /** Runs tasks one at a time. The returned promise rejects if this task fails; the queue keeps going. */
   function enqueue(task) {
@@ -214,6 +254,91 @@ function createStore(dir, { now = () => new Date(), platform = process.platform 
     if (await exists(winsPath)) backedUpOn = today;
   }
 
+  // ----- Extra backups in a folder the user chose -----
+
+  /**
+   * Writes `text` (the contents of wins.json) to today's backup file in the user's folder
+   * and removes this computer's oldest backups beyond BACKUPS_KEPT. Other files in the
+   * folder, including backups from other computers, are never touched. The folder is not
+   * created if it is missing: a drive that is unplugged should not get a stray folder.
+   * Never rejects; the outcome is kept for getBackupFolderStatus().
+   */
+  function copyToBackupFolder(text) {
+    const folder = settings ? settings.backupFolder : null;
+    if (!folder) return Promise.resolve();
+    const run = folderQueue.then(async () => {
+      try {
+        const file = path.join(folder, folderBackupName(device, localDate(now())));
+        await writeFileAtomic(file, text, `${file}.winlog-tmp`);
+        folderStatus = { savedAt: now(), error: null };
+      } catch (err) {
+        folderStatus = { savedAt: folderStatus.savedAt, error: err.code || 'ERROR' };
+        return;
+      }
+      try {
+        const names = await fsp.readdir(folder);
+        for (const old of folderBackupsToDelete(names, device, BACKUPS_KEPT)) {
+          await fsp.rm(path.join(folder, old), { force: true });
+        }
+      } catch {
+        // The copy itself is saved; tidying up can wait for the next one.
+      }
+    });
+    folderQueue = run;
+    return run;
+  }
+
+  /**
+   * At startup: makes sure the backup folder has the current wins, e.g. after a copy
+   * failed because a drive was unplugged. Does nothing if the newest copy is already
+   * the same, so days without changes do not push older backups out. Never rejects.
+   */
+  async function syncBackupFolder() {
+    const folder = settings ? settings.backupFolder : null;
+    if (!folder || !data) return;
+    const text = serialize(data);
+    try {
+      const mine = folderBackupsOf(await fsp.readdir(folder), device);
+      const newest = mine[mine.length - 1];
+      if (newest && (await fsp.readFile(path.join(folder, newest), 'utf8')) === text) return;
+    } catch {
+      // Cannot look: try to write, which records the problem for Settings.
+    }
+    await copyToBackupFolder(text);
+  }
+
+  /**
+   * Sets (or, with null, clears) the folder for extra daily backups and makes the first
+   * copy right away. Resolves to the status of that copy (see getBackupFolderStatus).
+   * Rejects with code NOT_A_FOLDER if `folder` is not an existing folder.
+   */
+  async function setBackupFolder(folder) {
+    if (folder !== null) {
+      let isFolder = false;
+      try {
+        isFolder = isFolderPath(folder) && (await fsp.stat(folder)).isDirectory();
+      } catch {
+        isFolder = false;
+      }
+      if (!isFolder) {
+        const err = new Error('That folder cannot be used');
+        err.code = 'NOT_A_FOLDER';
+        throw err;
+      }
+    }
+    await updateSettings({ backupFolder: folder });
+    folderStatus = { savedAt: null, error: null };
+    if (folder !== null && data) await copyToBackupFolder(serialize(data));
+    return getBackupFolderStatus();
+  }
+
+  /** { folder, savedAt, error }: the folder, when the last copy worked (this session), and the last error code. */
+  function getBackupFolderStatus() {
+    return { folder: settings ? settings.backupFolder : null, ...folderStatus };
+  }
+
+  // ----- Wins -----
+
   /**
    * Loads wins.json. Call once before anything else.
    * Resolves to { recovered: null } normally, or to
@@ -254,6 +379,12 @@ function createStore(dir, { now = () => new Date(), platform = process.platform 
     return data.entries;
   }
 
+  /** The exact text of wins.json for the current wins. This is what a backup file contains. */
+  function backupText() {
+    if (!data) throw new Error('store.load() has not finished');
+    return serialize(data);
+  }
+
   /**
    * The one way wins are changed. `compute(entries)` returns { entries, result } with a new
    * entries array (or the same array for "no change"). The new list is written first;
@@ -265,9 +396,11 @@ function createStore(dir, { now = () => new Date(), platform = process.platform 
       const { entries, result } = compute(current);
       if (entries === current) return result; // nothing changed, so nothing to write
       const next = { ...data, entries };
+      const text = serialize(next);
       await backupIfNeeded();
-      await writeJsonAtomic(winsPath, next);
+      await writeFileAtomic(winsPath, text);
       data = next;
+      copyToBackupFolder(text); // not awaited: see folderQueue
       return result;
     });
   }
@@ -295,6 +428,21 @@ function createStore(dir, { now = () => new Date(), platform = process.platform 
       return { entries: next, result: entry };
     });
   }
+
+  /**
+   * Adds the wins from a backup whose ids are not here yet. Wins that are already here
+   * are never changed. The comparison is made inside the save queue, against the wins
+   * as they are at that moment. Resolves to the plan that was applied
+   * ({ toAdd, same, different }, see lib/backup.js).
+   */
+  function importEntries(incoming) {
+    return changeEntries((entries) => {
+      const plan = planImport(entries, incoming);
+      return { entries: plan.toAdd.length > 0 ? [...entries, ...plan.toAdd] : entries, result: plan };
+    });
+  }
+
+  // ----- Settings -----
 
   /**
    * Loads settings.json. A missing file means defaults. An unreadable one is moved
@@ -334,22 +482,30 @@ function createStore(dir, { now = () => new Date(), platform = process.platform 
     });
   }
 
-  /** Resolves when every queued save has finished. */
+  /**
+   * Resolves when every queued save has finished. A copy to the backup folder gets a
+   * few seconds to finish too, but a folder that hangs cannot stop the app from quitting.
+   */
   function flush() {
-    return queue;
+    return queue.then(() => settledWithin(folderQueue, FOLDER_BACKUP_WAIT_MS));
   }
 
   return {
     load,
     getEntries,
+    backupText,
     addEntries,
     editEntry,
     deleteEntry,
+    importEntries,
     loadSettings,
     getSettings,
     updateSettings,
+    setBackupFolder,
+    syncBackupFolder,
+    getBackupFolderStatus,
     flush,
-    paths: { winsPath, settingsPath, backupDir },
+    paths: { dir, winsPath, settingsPath, backupDir },
   };
 }
 

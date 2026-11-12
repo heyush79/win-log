@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'" />
+    <title>Welcome to Win Log</title>
+    <link rel="stylesheet" href="../common.css" />
+    <script src="../../lib/accelerator.js" defer></script>
+    <script src="welcome.js" defer></script>
+  </head>
+  <body>
+    <form id="form" class="page welcome" novalidate>
+      <div class="scroll">
+        <header class="welcome-header">
+          <img src="../../../assets/icon.png" alt="" width="56" height="56" />
+          <h1>Welcome to Win Log</h1>
+        </header>
+
+        <ol class="steps">
+          <li>Once a day, Win Log asks: “What did you do today?”</li>
+          <li>You type a line or two. It takes a few seconds.</li>
+          <li>At review time, you export your wins and you are ready.</li>
+        </ol>
+
+        <section aria-labelledby="where-heading">
+          <h2 id="where-heading">Where to find it</h2>
+          <p id="where-mac" hidden>
+            Win Log lives in the menu bar, at the top right of your screen. Look for the star.
+            Click it to add a win or see your wins.
+          </p>
+          <p id="where-win" hidden>
+            Win Log lives in the system tray, at the bottom right of your screen. Look for the
+            star. If you do not see it, click the small arrow (^) to show hidden icons. You can
+            drag the star onto the taskbar to keep it in view.
+          </p>
+        </section>
+
+        <section aria-labelledby="reminder-heading">
+          <h2 id="reminder-heading">Daily reminder</h2>
+          <label class="row">
+            <span>Ask me at</span>
+            <input type="time" id="reminder-time" required />
+          </label>
+          <fieldset class="row days">
+            <legend class="row-label wide">on<span class="visually-hidden"> these days</span></legend>
+            <label><input type="checkbox" name="day" value="1" />Mon</label>
+            <label><input type="checkbox" name="day" value="2" />Tue</label>
+            <label><input type="checkbox" name="day" value="3" />Wed</label>
+            <label><input type="checkbox" name="day" value="4" />Thu</label>
+            <label><input type="checkbox" name="day" value="5" />Fri</label>
+            <label><input type="checkbox" name="day" value="6" />Sat</label>
+            <label><input type="checkbox" name="day" value="0" />Sun</label>
+          </fieldset>
+          <p class="hint">
+            Untick every day if you do not want a reminder. You can change this later in Settings.
+          </p>
+        </section>
+
+        <section aria-labelledby="shortcut-heading">
+          <h2 id="shortcut-heading">Shortcut</h2>
+          <p id="shortcut-text"></p>
+        </section>
+
+        <section aria-labelledby="privacy-heading">
+          <h2 id="privacy-heading">Your wins stay on this computer</h2>
+          <p>
+            No account, no server, no tracking. Win Log never connects to the internet. Your wins
+            are saved in this folder:
+          </p>
+          <p id="data-folder" class="path"></p>
+        </section>
+      </div>
+
+      <div class="actions footer">
+        <span id="status" class="status" role="status"></span>
+        <button id="start" type="submit" class="primary">Add my first win</button>
+      </div>
+    </form>
+  </body>
+</html>

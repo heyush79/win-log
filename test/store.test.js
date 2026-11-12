@@ -182,6 +182,8 @@ test('settings: defaults when there is no settings.json, and no file is created'
     shortcut: 'Control+Alt+W',
     openAtLogin: true,
     loginItemSetUp: false,
+    welcomeShown: false,
+    backupFolder: null,
     lastPromptedDate: null,
   });
   assert.equal(fs.existsSync(path.join(dir, 'settings.json')), false);
@@ -407,4 +409,234 @@ test('adds, edits and deletes started together are applied in order', async (t) 
     store.addEntries([fullEntry('c', 'Third')]),
   ]);
   assert.deepEqual((await readJson(path.join(dir, 'wins.json'))).entries.map((e) => e.text), ['First edited', 'Third']);
+});
+
+// ----- Import -----
+
+test('importEntries adds new wins only and never changes existing ones', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir);
+  await store.load();
+  await store.addEntries([fullEntry('a', 'Mine'), fullEntry('b', 'Also mine')]);
+
+  const plan = await store.importEntries([
+    fullEntry('a', 'DIFFERENT IN THE BACKUP'),
+    fullEntry('b', 'Also mine'),
+    fullEntry('c', 'From the backup'),
+  ]);
+  assert.deepEqual(plan.toAdd.map((e) => e.id), ['c']);
+  assert.equal(plan.same, 1);
+  assert.equal(plan.different, 1);
+
+  const again = createStore(dir);
+  await again.load();
+  assert.deepEqual(again.getEntries(), [fullEntry('a', 'Mine'), fullEntry('b', 'Also mine'), fullEntry('c', 'From the backup')]);
+});
+
+test('importEntries with nothing new does not write the file', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir);
+  await store.load();
+  await store.addEntries([fullEntry('a', 'Mine')]);
+  const file = path.join(dir, 'wins.json');
+  const before = await fsp.readFile(file, 'utf8');
+  const mtime = (await fsp.stat(file)).mtimeMs;
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const plan = await store.importEntries([fullEntry('a', 'Other text')]);
+  assert.deepEqual(plan.toAdd, []);
+  assert.equal(await fsp.readFile(file, 'utf8'), before);
+  assert.equal((await fsp.stat(file)).mtimeMs, mtime);
+});
+
+test('an import is compared with the wins as they are when it runs, not when it was planned', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir);
+  await store.load();
+  // The same win arrives through "add" just before the import that also contains it.
+  const [, plan] = await Promise.all([
+    store.addEntries([fullEntry('x', 'Added first')]),
+    store.importEntries([fullEntry('x', 'From the backup'), fullEntry('y', 'New')]),
+  ]);
+  assert.deepEqual(plan.toAdd.map((e) => e.id), ['y']);
+  assert.deepEqual(store.getEntries().map((e) => e.text), ['Added first', 'New']);
+});
+
+test('the first import of the day backs up the file as it was', async (t) => {
+  const dir = await tempDir(t);
+  const day1 = createStore(dir, { now: fixedNow('2026-11-10T10:00:00') });
+  await day1.load();
+  await day1.addEntries([fullEntry('a', 'Mine')]);
+  const day2 = createStore(dir, { now: fixedNow('2026-11-11T10:00:00') });
+  await day2.load();
+  await day2.importEntries([fullEntry('b', 'Imported')]);
+  const before = await readJson(path.join(dir, 'backups', 'wins-2026-11-11.json'));
+  assert.deepEqual(before.entries.map((e) => e.id), ['a']);
+});
+
+test('backupText is exactly what wins.json holds after a save', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir);
+  await store.load();
+  await store.addEntries([fullEntry('a', 'Mine')]);
+  assert.equal(store.backupText(), await fsp.readFile(path.join(dir, 'wins.json'), 'utf8'));
+});
+
+// ----- Settings added in 1.0 -----
+
+test('settings: welcomeShown and backupFolder are validated', async (t) => {
+  const dir = await tempDir(t);
+  const file = path.join(dir, 'settings.json');
+  await fsp.writeFile(file, JSON.stringify({ welcomeShown: 'yes', backupFolder: 'relative/path' }));
+  const store = createStore(dir);
+  await store.loadSettings();
+  assert.equal(store.getSettings().welcomeShown, false);
+  assert.equal(store.getSettings().backupFolder, null);
+
+  await fsp.writeFile(file, JSON.stringify({ welcomeShown: true, backupFolder: dir }));
+  const good = createStore(dir);
+  await good.loadSettings();
+  assert.equal(good.getSettings().welcomeShown, true);
+  assert.equal(good.getSettings().backupFolder, dir);
+
+  for (const bad of [5, '', {}, ['x'], 'x'.repeat(5000)]) {
+    await fsp.writeFile(file, JSON.stringify({ backupFolder: bad }));
+    const store2 = createStore(dir);
+    await store2.loadSettings();
+    assert.equal(store2.getSettings().backupFolder, null, JSON.stringify(bad).slice(0, 30));
+  }
+});
+
+// ----- Extra backups in a folder the user chose -----
+
+async function storeWithBackupFolder(t, options = {}) {
+  const dir = await tempDir(t);
+  const folder = await tempDir(t);
+  const store = createStore(dir, { hostname: 'Test-Mac.local', now: fixedNow('2026-11-12T10:00:00'), ...options });
+  await store.load();
+  await store.loadSettings();
+  return { dir, folder, store };
+}
+
+test('backup folder: choosing it saves a first copy named after this computer', async (t) => {
+  const { dir, folder, store } = await storeWithBackupFolder(t);
+  await store.addEntries([fullEntry('a', 'Mine')]);
+  const status = await store.setBackupFolder(folder);
+  assert.equal(status.folder, folder);
+  assert.equal(status.error, null);
+  assert.ok(status.savedAt instanceof Date);
+  assert.deepEqual(await fsp.readdir(folder), ['win-log-backup-Test-Mac-2026-11-12.json']);
+  assert.equal(
+    await fsp.readFile(path.join(folder, 'win-log-backup-Test-Mac-2026-11-12.json'), 'utf8'),
+    await fsp.readFile(path.join(dir, 'wins.json'), 'utf8')
+  );
+  const again = createStore(dir);
+  await again.loadSettings();
+  assert.equal(again.getSettings().backupFolder, folder, 'the choice is saved');
+});
+
+test('backup folder: every change updates today\'s copy', async (t) => {
+  const { dir, folder, store } = await storeWithBackupFolder(t);
+  await store.setBackupFolder(folder);
+  await store.addEntries([fullEntry('a', 'First')]);
+  await store.editEntry('a', 'First, edited');
+  await store.addEntries([fullEntry('b', 'Second')]);
+  await store.deleteEntry('b');
+  await store.flush();
+  const copy = await readJson(path.join(folder, 'win-log-backup-Test-Mac-2026-11-12.json'));
+  assert.deepEqual(copy.entries.map((e) => e.text), ['First, edited']);
+  assert.deepEqual(copy, await readJson(path.join(dir, 'wins.json')));
+  assert.deepEqual(await fsp.readdir(folder), ['win-log-backup-Test-Mac-2026-11-12.json'], 'no temp files left');
+});
+
+test('backup folder: only the newest 14 copies from this computer are kept; nothing else is touched', async (t) => {
+  const { folder, store } = await storeWithBackupFolder(t);
+  const keep = ['notes.txt', 'win-log-backup-Old-Laptop-2020-01-01.json', 'win-log-backup-2020-01-01.json', 'win-log-backup-Test-Mac-2-2020-01-01.json'];
+  for (const name of keep) await fsp.writeFile(path.join(folder, name), 'not ours');
+  for (let day = 1; day <= 20; day++) {
+    await fsp.writeFile(path.join(folder, `win-log-backup-Test-Mac-2026-10-${String(day).padStart(2, '0')}.json`), '{}');
+  }
+  await store.setBackupFolder(folder);
+  const names = await fsp.readdir(folder);
+  const mine = names.filter((n) => n.startsWith('win-log-backup-Test-Mac-2026')).sort();
+  assert.equal(mine.length, BACKUPS_KEPT);
+  assert.equal(mine[0], 'win-log-backup-Test-Mac-2026-10-08.json');
+  assert.equal(mine[mine.length - 1], 'win-log-backup-Test-Mac-2026-11-12.json');
+  for (const name of keep) assert.equal(await fsp.readFile(path.join(folder, name), 'utf8'), 'not ours', name);
+});
+
+test('backup folder: a missing folder never stops a win from being saved', async (t) => {
+  const { dir, folder, store } = await storeWithBackupFolder(t);
+  await store.setBackupFolder(folder);
+  await fsp.rm(folder, { recursive: true });
+  await store.addEntries([fullEntry('a', 'Still saved')]);
+  await store.flush();
+  assert.deepEqual((await readJson(path.join(dir, 'wins.json'))).entries.map((e) => e.text), ['Still saved']);
+  const status = store.getBackupFolderStatus();
+  assert.equal(status.error, 'ENOENT');
+  assert.equal(fs.existsSync(folder), false, 'the missing folder is not created again');
+  // When the folder is back, the next change is copied again.
+  await fsp.mkdir(folder);
+  await store.addEntries([fullEntry('b', 'Later')]);
+  await store.flush();
+  assert.equal(store.getBackupFolderStatus().error, null);
+  assert.equal((await fsp.readdir(folder)).length, 1);
+});
+
+test('backup folder: only an existing folder can be chosen', async (t) => {
+  const { dir, folder, store } = await storeWithBackupFolder(t);
+  const file = path.join(folder, 'a-file.txt');
+  await fsp.writeFile(file, 'x');
+  for (const bad of [file, path.join(folder, 'missing'), 'relative/folder', '', 42, undefined]) {
+    await assert.rejects(store.setBackupFolder(bad), { code: 'NOT_A_FOLDER' }, String(bad));
+  }
+  assert.equal(store.getSettings().backupFolder, null);
+  assert.equal(fs.existsSync(path.join(dir, 'settings.json')), false, 'nothing was saved');
+});
+
+test('backup folder: turning it off stops the copies and keeps the files', async (t) => {
+  const { folder, store } = await storeWithBackupFolder(t);
+  await store.setBackupFolder(folder);
+  const status = await store.setBackupFolder(null);
+  assert.deepEqual(status, { folder: null, savedAt: null, error: null });
+  await store.addEntries([fullEntry('a', 'Not copied')]);
+  await store.flush();
+  const copy = await fsp.readFile(path.join(folder, 'win-log-backup-Test-Mac-2026-11-12.json'), 'utf8');
+  assert.ok(!copy.includes('Not copied'));
+});
+
+test('backup folder: at startup a missing or outdated copy is caught up, an identical one is left alone', async (t) => {
+  const dir = await tempDir(t);
+  const folder = await tempDir(t);
+  const day1 = createStore(dir, { hostname: 'Test-Mac', now: fixedNow('2026-11-10T10:00:00') });
+  await day1.load();
+  await day1.loadSettings();
+  await day1.setBackupFolder(folder);
+  await day1.addEntries([fullEntry('a', 'Mine')]);
+  await day1.flush();
+  assert.deepEqual(await fsp.readdir(folder), ['win-log-backup-Test-Mac-2026-11-10.json']);
+
+  // Next day, nothing changed: no new file, so quiet days do not push older backups out.
+  const day2 = createStore(dir, { hostname: 'Test-Mac', now: fixedNow('2026-11-11T10:00:00') });
+  await day2.load();
+  await day2.loadSettings();
+  await day2.syncBackupFolder();
+  assert.deepEqual(await fsp.readdir(folder), ['win-log-backup-Test-Mac-2026-11-10.json']);
+
+  // The copy went missing (or a copy failed earlier): the next start writes it again.
+  await fsp.rm(path.join(folder, 'win-log-backup-Test-Mac-2026-11-10.json'));
+  const day3 = createStore(dir, { hostname: 'Test-Mac', now: fixedNow('2026-11-12T10:00:00') });
+  await day3.load();
+  await day3.loadSettings();
+  await day3.syncBackupFolder();
+  assert.deepEqual(await fsp.readdir(folder), ['win-log-backup-Test-Mac-2026-11-12.json']);
+  assert.deepEqual((await readJson(path.join(folder, 'win-log-backup-Test-Mac-2026-11-12.json'))).entries.map((e) => e.id), ['a']);
+});
+
+test('backup folder: syncBackupFolder does nothing when no folder is set, and never rejects', async (t) => {
+  const { folder, store } = await storeWithBackupFolder(t);
+  await store.syncBackupFolder();
+  await store.setBackupFolder(folder);
+  await fsp.rm(folder, { recursive: true });
+  await store.syncBackupFolder(); // folder gone: must not throw
+  assert.equal(store.getBackupFolderStatus().error, 'ENOENT');
 });

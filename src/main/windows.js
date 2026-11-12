@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('node:path');
-const { app, BrowserWindow, nativeTheme } = require('electron');
+const { app, BrowserWindow, nativeTheme, screen } = require('electron');
 
 const RENDERER_DIR = path.join(__dirname, '..', 'renderer');
 const PRELOAD = path.join(__dirname, '..', 'preload', 'preload.js');
@@ -34,16 +34,39 @@ const PAGES = {
   settings: {
     file: 'settings/settings.html',
     title: 'Win Log Settings',
-    width: 460,
-    height: 500,
+    width: 480,
+    height: 680,
+    minWidth: 480,
+    maxWidth: 480,
+    minHeight: 420,
+    useContentSize: true,
+    minimizable: false,
+  },
+  about: {
+    file: 'about/about.html',
+    title: 'About Win Log',
+    width: 380,
+    height: 400,
     useContentSize: true,
     resizable: false,
+    minimizable: false,
+  },
+  welcome: {
+    file: 'welcome/welcome.html',
+    title: 'Welcome to Win Log',
+    width: 520,
+    height: 660,
+    minWidth: 520,
+    maxWidth: 520,
+    minHeight: 420,
+    useContentSize: true,
     minimizable: false,
   },
 };
 
 // The windows a page may ask to open (see 'window:open' in ipc.js).
-const WINDOW_NAMES = Object.keys(PAGES);
+// The welcome window is only ever opened by the app itself, on the first run.
+const WINDOW_NAMES = Object.keys(PAGES).filter((name) => name !== 'welcome');
 
 // One window per page at most.
 const openWindows = new Map();
@@ -80,6 +103,10 @@ function showWindow(name, { focus = true } = {}) {
   }
 
   const { file, ...options } = PAGES[name];
+  // Never taller than the screen: on a small laptop the buttons at the bottom would be cut off.
+  // The pages scroll when they get less room than they ask for.
+  const roomy = screen.getPrimaryDisplay().workAreaSize.height - 60;
+  if (options.height > roomy) options.height = Math.max(options.minHeight || 300, roomy);
   const win = new BrowserWindow({
     ...options,
     show: false,
@@ -108,15 +135,10 @@ function showEntryWindow(options) {
   return showWindow('entry', options);
 }
 
-function showSettingsWindow() {
-  return showWindow('settings');
-}
-
 module.exports = {
   showWindow,
   getWindow,
   showEntryWindow,
-  showSettingsWindow,
   RENDERER_DIR,
   WINDOW_NAMES,
 };

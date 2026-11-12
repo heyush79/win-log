@@ -5,7 +5,7 @@
 // store can keep the old data in memory until the new data is safely on disk.
 
 const { extractTag } = require('./tags');
-const { localDate } = require('./dates');
+const { localDate, isValidDate } = require('./dates');
 
 const MAX_TEXT_LENGTH = 20000; // everything typed into the Add a win box at once
 const MAX_LINES = 100;
@@ -19,8 +19,31 @@ function entryError(code, message) {
   return err;
 }
 
+// Every kind of line break, including the Unicode line and paragraph separators.
+const LINE_BREAKS = /[\r\n\u2028\u2029]+/g;
+
+/** The text on a single line: every run of line breaks becomes one space. */
+function joinLines(text) {
+  return text.replace(LINE_BREAKS, ' ');
+}
+
 function isValidId(id) {
   return typeof id === 'string' && id.length > 0 && id.length <= MAX_ID_LENGTH;
+}
+
+/**
+ * True if a win has what the app needs to show it: an id, a real date and a text.
+ * wins.json is plain JSON that people may edit by hand. A broken item is left in the
+ * file untouched, but it is not listed, counted or exported, so it cannot crash a window.
+ */
+function isUsableEntry(entry) {
+  return (
+    Boolean(entry) &&
+    typeof entry === 'object' &&
+    isValidId(entry.id) &&
+    isValidDate(entry.date) &&
+    typeof entry.text === 'string'
+  );
 }
 
 /** Validates the text from the Add a win window and returns one trimmed line per win. */
@@ -74,7 +97,7 @@ function createEntries(lines, now, makeId) {
  * `entries` is the same array that was passed in.
  */
 function editEntry(entries, id, text, now) {
-  const index = entries.findIndex((entry) => entry.id === id);
+  const index = entries.findIndex((entry) => entry?.id === id);
   if (index === -1) throw entryError('NOT_FOUND', 'This win no longer exists');
   const clean = cleanWinText(text);
   const old = entries[index];
@@ -90,7 +113,7 @@ function editEntry(entries, id, text, now) {
  * If there is no such win, `entries` is the same array and entry is null.
  */
 function deleteEntry(entries, id) {
-  const index = entries.findIndex((entry) => entry.id === id);
+  const index = entries.findIndex((entry) => entry?.id === id);
   if (index === -1) return { entries, entry: null };
   return { entries: entries.filter((_, i) => i !== index), entry: entries[index] };
 }
@@ -100,6 +123,8 @@ module.exports = {
   MAX_LINES,
   MAX_LINE_LENGTH,
   isValidId,
+  isUsableEntry,
+  joinLines,
   parseWinLines,
   cleanWinText,
   createEntries,

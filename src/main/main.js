@@ -1,12 +1,14 @@
 'use strict';
 
-const { app, dialog, Menu } = require('electron');
+const { app, dialog, Menu, session } = require('electron');
+const { localDate } = require('../lib/dates');
+const { countOnDate } = require('../lib/group');
 const { createStore } = require('./store');
-const { createTray } = require('./tray');
-const { showWindow, showEntryWindow, showSettingsWindow } = require('./windows');
-const { registerIpc } = require('./ipc');
+const { createTray, updateTray } = require('./tray');
+const { showWindow, getWindow, showEntryWindow } = require('./windows');
+const { registerIpc, usableEntries } = require('./ipc');
 const { startReminder } = require('./reminder');
-const { initShortcut, unregisterShortcuts } = require('./shortcut');
+const { initShortcut, isShortcutActive, currentShortcut, unregisterShortcuts } = require('./shortcut');
 const { setUpLoginItemOnFirstRun, syncLoginItemSetting } = require('./loginItem');
 
 // One running copy only, so two processes never write the same file.
@@ -19,6 +21,7 @@ if (!app.requestSingleInstanceLock()) {
 function start() {
   const store = createStore(app.getPath('userData'));
 
+  // Opening Win Log again while it is running shows that it is there.
   app.on('second-instance', () => showEntryWindow());
 
   // Closing the last window must not quit: the app lives in the tray.
@@ -37,15 +40,17 @@ function start() {
 
   app.on('will-quit', () => unregisterShortcuts());
 
-  // No page may navigate away or open new windows.
+  // No page may navigate away, open new windows or embed other pages.
   app.on('web-contents-created', (_event, contents) => {
     contents.on('will-navigate', (e) => e.preventDefault());
+    contents.on('will-attach-webview', (e) => e.preventDefault());
     contents.setWindowOpenHandler(() => ({ action: 'deny' }));
   });
 
   app.whenReady().then(async () => {
     app.dock?.hide();
     setApplicationMenu();
+    lockDownSession();
 
     let recovered;
     try {
@@ -70,25 +75,74 @@ function start() {
     const settings = store.getSettings();
     initShortcut(settings.shortcut, () => showEntryWindow()); // takes focus
 
-    // The reminder never takes focus, so it cannot catch keys meant for another app.
-    const reminder = startReminder({ store, showReminder: () => showEntryWindow({ focus: false }) });
+    // The tray menu starts with "Today: 2 wins". Redraw it when wins, the shortcut or the day change.
+    const trayState = () => ({
+      todayCount: countOnDate(usableEntries(store), localDate()),
+      shortcut: isShortcutActive() ? currentShortcut() : null,
+    });
+    let trayDay = localDate();
+    const refreshTray = () => {
+      trayDay = localDate();
+      updateTray(trayState());
+    };
 
+    let reminder = null;
     registerIpc(store, {
       onSettingsSaved() {
-        reminder.check(); // e.g. a reminder time that is already past today shows now
+        refreshTray();
+        reminder?.check(); // e.g. a reminder time that is already past today shows now
       },
-      onWinsChanged() {},
+      onWinsChanged: refreshTray,
     });
-    createTray({
-      onAddWin: () => showEntryWindow(),
-      onMyWins: () => showWindow('wins'),
-      onExport: () => showWindow('export'),
-      onSettings: () => showSettingsWindow(),
-      onQuit: () => app.quit(),
+
+    createTray(
+      {
+        onAddWin: () => showEntryWindow(),
+        onMyWins: () => showWindow('wins'),
+        onExport: () => showWindow('export'),
+        onSettings: () => showWindow('settings'),
+        onAbout: () => showWindow('about'),
+        onQuit: () => app.quit(),
+      },
+      trayState()
+    );
+
+    // First run only: say hello and explain where the icon is.
+    if (!settings.welcomeShown) {
+      const welcome = showWindow('welcome');
+      welcome.on('closed', () => reminder?.check());
+      store
+        .updateSettings({ welcomeShown: true })
+        .catch((err) => console.error('Could not save welcomeShown:', err));
+    }
+
+    reminder = startReminder({
+      store,
+      // The reminder never takes focus, so it cannot catch keys meant for another app.
+      showReminder: () => showEntryWindow({ focus: false }),
+      // On the first run the welcome window comes first; the reminder waits until it is closed.
+      isBlocked: () => getWindow('welcome') !== null,
+      onTick: () => {
+        if (localDate() !== trayDay) refreshTray(); // a new day: "Today" starts again
+      },
     });
+
+    store.syncBackupFolder(); // catches up a missed copy; never rejects
 
     if (recovered) await showRecoveryNotice(recovered);
   });
+}
+
+// Win Log never uses the network. This makes sure of it: every web request from a
+// page is cancelled, and every permission a page could ask for is refused.
+function lockDownSession() {
+  const ses = session.defaultSession;
+  ses.webRequest.onBeforeRequest(
+    { urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*', 'ftp://*/*'] },
+    (_details, callback) => callback({ cancel: true })
+  );
+  ses.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  ses.setPermissionCheckHandler(() => false);
 }
 
 // macOS needs an Edit menu for Cmd+C / Cmd+V / Cmd+Z to work in text fields.

@@ -27,6 +27,17 @@ contextBridge.exposeInMainWorld('winlog', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (changes) => ipcRenderer.invoke('settings:update', changes),
 
-  // Windows
+  // Your data. Files and folders are always picked in a dialog shown by the app.
+  openDataFolder: () => ipcRenderer.invoke('data:open-folder'),
+  exportBackup: () => ipcRenderer.invoke('data:export-backup'),
+  importBackup: () => ipcRenderer.invoke('data:import-backup'),
+  chooseBackupFolder: () => ipcRenderer.invoke('data:choose-backup-folder'),
+  clearBackupFolder: () => ipcRenderer.invoke('data:clear-backup-folder'),
+
+  // App and windows
+  getAppInfo: () => ipcRenderer.invoke('app:info'),
+  /** name: 'releases' | 'issues' | 'website'. Opens in the user's browser. */
+  openLink: (name) => ipcRenderer.invoke('link:open', name),
+  /** name: 'entry' | 'wins' | 'export' | 'settings' | 'about' */
   openWindow: (name) => ipcRenderer.invoke('window:open', name),
 });

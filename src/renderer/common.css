@@ -490,16 +490,96 @@ ul.wins {
   margin-bottom: -6px;
 }
 
-/* ----- Settings ----- */
+/* ----- Pages that may be taller than their window: the middle scrolls ----- */
 
-.settings {
+.scroll {
+  flex: 1;
+  min-height: 0;
+  margin: 0 -20px;
+  padding: 2px 20px;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+  overflow-y: auto;
 }
 
-.settings section {
+.scroll > section {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* A folder or file path: easy to read, can be selected and copied, breaks anywhere. */
+.path {
+  padding: 5px 8px;
+  font: 12px/1.4 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+  user-select: all;
+  background: var(--bg-soft);
+  border-radius: var(--radius);
+}
+
+.row.wrap {
+  flex-wrap: wrap;
+}
+
+/* ----- About ----- */
+
+.about {
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.about img {
+  margin-top: 4px;
+}
+
+.about-actions {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.about .status {
+  flex: none;
+}
+
+/* ----- Welcome ----- */
+
+.welcome-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.welcome h1 {
+  font-size: 22px;
+}
+
+ol.steps {
+  margin: 0;
+  padding-left: 22px;
+  font-size: 15px;
+}
+
+ol.steps li {
+  margin: 4px 0;
+  padding-left: 4px;
+}
+
+.row-label.wide {
+  width: auto;
+  color: inherit;
+}
+
+/* ----- Settings ----- */
+
+.settings,
+.welcome {
+  gap: 14px;
 }
 
 .indent {

@@ -121,3 +121,28 @@ test('parseWinLines also splits on the Unicode line and paragraph separators', (
   assert.deepEqual(parseWinLines(`one${LS}two${PS}three`), ['one', 'two', 'three']);
   assert.throws(() => cleanWinText(`one${LS}two`), { code: 'INVALID_TEXT' });
 });
+
+const { isUsableEntry, joinLines } = require('../src/lib/entries');
+
+test('isUsableEntry: an id, a real date and a text are needed to show a win', () => {
+  assert.equal(isUsableEntry(entry('a', 'ok')), true);
+  assert.equal(isUsableEntry({ id: 'a', date: '2026-11-10', text: '' }), true);
+  for (const bad of [null, undefined, 5, 'text', [], {}, { id: 'a', date: '2026-11-10' }, { id: 'a', text: 'x' }, { id: 'a', date: '2026-02-30', text: 'x' }, { id: 5, date: '2026-11-10', text: 'x' }, { id: 'a', date: '2026-11-10', text: 5 }]) {
+    assert.equal(isUsableEntry(bad), false, JSON.stringify(bad));
+  }
+});
+
+test('edit and delete still work when the list holds broken items', () => {
+  const list = [null, 'junk', entry('a', 'First'), { text: 'no id' }];
+  assert.equal(editEntry(list, 'a', 'Changed', LATER).entry.text, 'Changed');
+  assert.equal(editEntry(list, 'a', 'Changed', LATER).entries.length, 4, 'broken items stay in the list');
+  assert.deepEqual(deleteEntry(list, 'a').entries, [null, 'junk', { text: 'no id' }]);
+  assert.throws(() => editEntry(list, 'missing', 'x', LATER), { code: 'NOT_FOUND' });
+});
+
+test('joinLines turns every kind of line break into one space', () => {
+  const LS = String.fromCharCode(0x2028);
+  assert.equal(joinLines(`a\nb\r\nc\rd${LS}e\n\n\nf`), 'a b c d e f');
+  assert.equal(joinLines('no breaks'), 'no breaks');
+  assert.equal(joinLines('twice'), 'twice', 'safe to call again and again');
+});

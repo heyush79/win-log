@@ -3,6 +3,9 @@
 // Changes are collected in the form and sent with Save. Saving on every edit is not
 // safe here: while a time is being typed, the field briefly holds values like 01:00,
 // and the reminder rule would fire on them.
+//
+// The "Your data" section is different: its buttons act at once (open a folder, save
+// a backup, import one), and they never touch the unsaved changes in the form above.
 
 const isMac = window.winlog.platform === 'darwin';
 const DEFAULT_DAYS = [1, 2, 3, 4, 5];
@@ -129,6 +132,7 @@ function render(view) {
   loginEl.checked = view.openAtLogin;
   loginNote.hidden = view.openAtLoginApplies;
   loginApproval.hidden = !view.openAtLoginNeedsApproval;
+  renderData(view);
   update();
 }
 
@@ -191,6 +195,117 @@ form.addEventListener('submit', (event) => {
   event.preventDefault();
   save();
 });
+
+// ----- Your data -----
+
+const dataFolderEl = document.getElementById('data-folder');
+const backupOn = document.getElementById('backup-on');
+const backupDetails = document.getElementById('backup-details');
+const backupFolderEl = document.getElementById('backup-folder');
+const backupStatusEl = document.getElementById('backup-status');
+const dataStatusEl = document.getElementById('data-status');
+const dataButtons = ['open-folder', 'export-backup', 'import-backup', 'choose-folder'].map((id) =>
+  document.getElementById(id)
+);
+const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+function setDataStatus(message, isError = false) {
+  dataStatusEl.textContent = message;
+  dataStatusEl.classList.toggle('error', isError);
+}
+
+function renderData(view) {
+  dataFolderEl.textContent = view.dataFolder;
+  backupOn.checked = Boolean(view.backupFolder);
+  backupDetails.hidden = !view.backupFolder;
+  backupFolderEl.textContent = view.backupFolder || '';
+  backupStatusEl.classList.toggle('error', Boolean(view.backupError));
+  if (view.backupError) {
+    backupStatusEl.textContent =
+      'The last backup could not be saved in this folder. Check that the folder still exists and that Win Log is allowed to use it.';
+  } else if (view.backupSavedAt) {
+    backupStatusEl.textContent = `Last backup saved: ${dateTime.format(new Date(view.backupSavedAt))}.`;
+  } else {
+    backupStatusEl.textContent = 'A new backup is saved here on each day that you add or change a win.';
+  }
+}
+
+const DATA_ERRORS = {
+  'data-folder': 'Choose a different folder. That one is where Win Log keeps its own files.',
+  'not-a-folder': 'That folder cannot be used. Choose another one.',
+  'not-backup': 'That file is not a Win Log backup.',
+  'newer-version': 'That backup was made by a newer version of Win Log. Update Win Log, then try again.',
+  unreadable: 'That file could not be read.',
+};
+
+/** Runs one "Your data" action with the buttons switched off, and reports what happened. */
+async function dataAction(action) {
+  for (const el of [...dataButtons, backupOn]) el.disabled = true;
+  setDataStatus('');
+  try {
+    const message = await action();
+    if (message) setDataStatus(message.text, Boolean(message.isError));
+  } catch (err) {
+    console.error(err);
+    setDataStatus('That did not work. Try again.', true);
+  } finally {
+    for (const el of [...dataButtons, backupOn]) el.disabled = false;
+  }
+}
+
+/** The message for a result that is not ok, or null if the user just cancelled. */
+function failure(result) {
+  if (result.canceled) return null;
+  return { text: DATA_ERRORS[result.error] || 'That did not work. Try again.', isError: true };
+}
+
+document.getElementById('open-folder').addEventListener('click', () =>
+  dataAction(async () => {
+    const result = await window.winlog.openDataFolder();
+    return result.ok ? null : { text: 'Could not open the folder.', isError: true };
+  })
+);
+
+document.getElementById('export-backup').addEventListener('click', () =>
+  dataAction(async () => {
+    const result = await window.winlog.exportBackup();
+    if (!result.ok) return failure(result);
+    const wins = result.count === 1 ? '1 win' : `${result.count} wins`;
+    return { text: `Backup saved as ${result.fileName} (${wins}).` };
+  })
+);
+
+document.getElementById('import-backup').addEventListener('click', () =>
+  dataAction(async () => {
+    const result = await window.winlog.importBackup();
+    if (result.ok) return { text: result.added === 1 ? 'Imported 1 win.' : `Imported ${result.added} wins.` };
+    if (result.error === 'nothing-new') return { text: `Nothing was imported. ${result.summary.join(' ')}` };
+    return failure(result);
+  })
+);
+
+async function chooseBackupFolder() {
+  const result = await window.winlog.chooseBackupFolder();
+  if (!result.ok) {
+    backupOn.checked = !backupDetails.hidden; // back to how it was
+    return failure(result);
+  }
+  renderData(result.settings);
+  return result.settings.backupError
+    ? { text: 'The folder was chosen, but the first backup could not be saved there.', isError: true }
+    : { text: 'Daily backups are on. The first backup is saved.' };
+}
+
+backupOn.addEventListener('change', () =>
+  dataAction(async () => {
+    if (backupOn.checked) return chooseBackupFolder();
+    const result = await window.winlog.clearBackupFolder();
+    renderData(result.settings);
+    return { text: 'Daily backups to that folder are off. The files in it were not removed.' };
+  })
+);
+
+document.getElementById('choose-folder').addEventListener('click', () => dataAction(chooseBackupFolder));
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
