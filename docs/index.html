@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Win Log: have your wins ready at review time</title>
+  <meta name="description" content="A small, free app for Mac and Windows. Once a day it asks what you did and saves your answers on your computer, so your wins are ready at review time.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#16120e">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Win Log">
+  <meta property="og:title" content="Win Log: have your wins ready at review time">
+  <meta property="og:description" content="A small, free app for Mac and Windows. Once a day it asks what you did and saves your answers on your computer, so your wins are ready at review time.">
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+  <!--
+    config.js names the GitHub owner and repo. download.js reads it, picks the
+    download button for the visitor's computer and fills in every GitHub link
+    on this page (the links marked data-gh and data-download). Both load here,
+    before the page is drawn, so the buttons do not jump.
+    The github.com addresses written in this file are only used when
+    JavaScript is off. If you change the owner or repo in config.js, replace
+    them here too.
+  -->
+  <script src="config.js"></script>
+  <script src="download.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <p class="brand"><img src="favicon.png" alt="" width="28" height="28">Win Log</p>
+      <nav class="site-nav" aria-label="Main">
+        <ul role="list">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a data-gh="repo" href="https://github.com/ayushCodes/win-log">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap">
+        <img class="hero-icon" src="icon.png" alt="Win Log app icon" width="112" height="112">
+        <h1 id="hero-title">Win Log</h1>
+        <p class="hero-line"><span>Remember what you did.</span> <span>Have your wins ready at review time.</span></p>
+        <p class="hero-lead">Once a day, Win Log asks <span class="nowrap">“What did you do today?”</span> and saves your answers on your computer.</p>
+
+        <div class="download">
+          <div class="download-buttons">
+            <a class="button button-mac" data-download="mac" href="https://github.com/ayushCodes/win-log/releases/latest">
+              <span class="button-title">Download for Mac</span>
+              <span class="button-detail">macOS 13 or later</span>
+            </a>
+            <a class="button button-windows" data-download="windows" href="https://github.com/ayushCodes/win-log/releases/latest">
+              <span class="button-title">Download for Windows</span>
+              <span class="button-detail">Windows 10 or 11</span>
+            </a>
+          </div>
+          <p class="download-also download-also-windows"><a data-download="windows" href="https://github.com/ayushCodes/win-log/releases/latest">Also for Windows</a></p>
+          <p class="download-also download-also-mac"><a data-download="mac" href="https://github.com/ayushCodes/win-log/releases/latest">Also for Mac</a></p>
+          <p class="download-note">Win Log runs on Mac and Windows computers. To install it, open this page on one of them.</p>
+        </div>
+
+        <p class="hero-meta">Free and open source. For Mac and Windows. <span class="hero-version" id="latest-version" hidden></span></p>
+      </div>
+    </section>
+
+    <div class="demo wrap">
+      <!--
+        DEMO GIF: how to replace this placeholder
+
+        1. Save the recording as docs/media/demo.gif. Keep it short and small
+           (a few seconds, ideally under 3 MB) so the page stays fast. Let it
+           play once or a few times, not forever: visitors cannot pause a GIF.
+        2. Replace the whole <div class="demo-placeholder"> ... </div> below with:
+
+             <img class="demo-image" src="media/demo.gif" width="1280" height="800"
+                  alt="Win Log asks what you did today, two wins are typed in, then the Export window copies them as a list.">
+
+           Set width and height to the real size of your GIF in pixels. They stop
+           the page from jumping while the GIF loads. The page scales the GIF to fit
+           (style.css already has the .demo-image style).
+        3. Change the alt text so it says, in one sentence, what the GIF shows.
+
+        Optional, for visitors who turn on "Reduce motion": save one still frame as
+        docs/media/demo.png and use this instead of the <img> above:
+
+             <picture>
+               <source srcset="media/demo.png" media="(prefers-reduced-motion: reduce)">
+               <img class="demo-image" src="media/demo.gif" width="1280" height="800" alt="(same alt text)">
+             </picture>
+      -->
+      <div class="demo-placeholder">
+        <p>Demo coming soon</p>
+      </div>
+    </div>
+
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <h2 id="features-title">What Win Log does</h2>
+        <div class="features">
+          <div class="feature">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></div>
+            <h3>A daily question</h3>
+            <p>At 6&nbsp;pm on weekdays, Win Log asks “What did you do today?” You can change the time and the days. If your computer was asleep, it asks when you come back that day. It does not ask on a day when you already added a win.</p>
+            <p>You can also add a win at any time, from the menu or with a keyboard shortcut.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></div>
+            <h3>All your wins in one place</h3>
+            <p>“My Wins” shows your wins week by week, newest first. Search them, filter by tag, and edit or delete any win.</p>
+            <p>To tag a win, add a word with # as you type, like #bugfix.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 14.5V3.5M7.5 8 12 3.5 16.5 8"/><path d="M4.5 13.5v5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/></svg></div>
+            <h3>Ready for review time</h3>
+            <p>Pick a date range, like “Last&nbsp;6&nbsp;months”. Get a Markdown list grouped by tag, or plain text for HR tools that do not take Markdown.</p>
+            <p>Check the preview, then copy it or save it as a file.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how-it-works" aria-labelledby="how-title">
+      <div class="wrap">
+        <h2 id="how-title">How it works</h2>
+        <ol class="steps" role="list">
+          <li>
+            <h3>Install Win Log</h3>
+            <p>On a Mac, open the .dmg file and drag Win Log to Applications. On Windows, run the setup file. You do not need admin rights.</p>
+            <p>Win Log is not code-signed yet, so your computer shows a warning the first time you open it. Follow the <a href="#mac-warning">steps for Mac</a> or the <a href="#windows-warning">steps for Windows</a>.</p>
+          </li>
+          <li>
+            <h3>Find the star</h3>
+            <p>Win Log has no main window. Everything starts from its star icon: in the menu bar at the top right of your Mac screen, or in the system tray at the bottom right on Windows.</p>
+            <p>Can’t see it? See <a href="#find-icon">I can’t find the icon</a>.</p>
+          </li>
+          <li>
+            <h3>Write down your wins</h3>
+            <p>When Win Log asks what you did today, type one win per line. To tag a win, add a word with #:</p>
+            <p><code>Fixed the login bug #bugfix</code></p>
+            <p>To add a win at any other time, press <kbd>Control+Option+W</kbd> on a Mac or <kbd>Ctrl+Alt+Shift+W</kbd> on Windows.</p>
+          </li>
+          <li>
+            <h3>Export at review time</h3>
+            <p>Choose “Export…” in the menu and pick a date range. Check the preview, then click “Copy to clipboard” or “Save as file…”.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section" id="privacy" aria-labelledby="privacy-title">
+      <div class="wrap">
+        <div class="privacy-panel">
+          <h2 id="privacy-title">Your wins stay on your computer</h2>
+          <p class="privacy-lead">Win Log saves your wins in plain files on your own computer. The author of Win Log cannot see them.</p>
+          <div class="privacy-grid">
+            <div>
+              <ul class="checklist" role="list">
+                <li>No account and no sign-in.</li>
+                <li>No server. Win Log never sends your wins anywhere.</li>
+                <li>No analytics, no tracking and no ads.</li>
+                <li>The app never connects to the internet. It has no auto-updater.</li>
+              </ul>
+              <p>Links in the app, like “Check for updates”, open in your browser, and only when you click them.</p>
+            </div>
+            <div class="privacy-site">
+              <h3>About this website</h3>
+              <p>This website has no trackers and no analytics. To show the newest download links, it asks GitHub’s API for the latest release. GitHub hosts this site and the downloads, so GitHub can see these requests, like any web host.</p>
+              <p><a data-gh="privacy" href="https://github.com/ayushCodes/win-log/blob/main/PRIVACY.md">Read the full privacy policy</a></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="wrap">
+        <h2 id="faq-title">Frequently asked questions</h2>
+        <div class="faq">
+          <details id="where-saved">
+            <summary>Where are my wins saved?</summary>
+            <div class="answer">
+              <p>On your computer, in plain JSON files in the Win Log data folder:</p>
+              <ul>
+                <li>Mac: <code>~/Library/Application Support/Win Log/</code></li>
+                <li>Windows: <code>%APPDATA%\Win Log\</code></li>
+              </ul>
+              <p><code>wins.json</code> holds your wins and <code>settings.json</code> holds your settings. To open the folder, choose “Settings…” &gt; “Your data” &gt; “Open data folder”.</p>
+            </div>
+          </details>
+
+          <details id="back-up">
+            <summary>How do I back up my wins?</summary>
+            <div class="answer">
+              <p>Win Log already makes backups. Before the first change of each day, it copies <code>wins.json</code> into the <code>backups</code> folder inside the data folder. It keeps the newest 14 copies.</p>
+              <p>To keep a copy somewhere else, open “Settings…” &gt; “Your data”:</p>
+              <ul>
+                <li>Click “Export backup…” to save all your wins in one <code>.json</code> file.</li>
+                <li>Or tick “Also save daily backups to a folder I choose” and pick a folder. Pick one inside your iCloud Drive, Google Drive or OneDrive to get a synced copy of your backups for free. Win Log keeps the newest 14 copies from this computer there and never touches your other files. Your live data always stays in the normal data folder.</li>
+              </ul>
+              <p>You can also copy <code>wins.json</code> yourself.</p>
+            </div>
+          </details>
+
+          <details id="new-computer">
+            <summary>How do I move to a new computer?</summary>
+            <div class="answer">
+              <ol>
+                <li>On the old computer, choose “Settings…” &gt; “Your data” &gt; “Export backup…”.</li>
+                <li>Install Win Log on the new computer.</li>
+                <li>On the new computer, choose “Settings…” &gt; “Your data” &gt; “Import backup…” and pick the file.</li>
+              </ol>
+              <p>Win Log shows a summary before it imports anything. It only adds wins that are not already there, and it never overwrites a win you have.</p>
+              <p>Another way: quit Win Log on both computers, then copy <code>wins.json</code> into the data folder on the new one.</p>
+            </div>
+          </details>
+
+          <details id="mac-warning">
+            <summary>macOS says Apple could not verify Win Log, or that it is from an “unidentified developer”</summary>
+            <div class="answer">
+              <p>Win Log is not code-signed yet, because signing costs money. So macOS warns you the first time you open it. Only follow these steps for a file you downloaded from this page or from the <a data-gh="releases" href="https://github.com/ayushCodes/win-log/releases">Releases page</a>.</p>
+              <ul>
+                <li><strong>macOS 13 and 14:</strong> in Finder, open Applications. Control-click (or right-click) Win Log, choose “Open”, then click “Open” again.</li>
+                <li><strong>macOS 15 Sequoia and later:</strong> try to open Win Log once, then click “Done” in the warning (not “Move to Trash”). Then open System Settings &gt; Privacy &amp; Security, scroll down and click “Open Anyway”. You may need to confirm with your password.</li>
+                <li><strong>If macOS says Win Log “is damaged”:</strong> do not move it to the Trash. Close the warning, open Terminal (in Applications &gt; Utilities), run this command, then open Win Log again.
+                  <pre class="command"><code>xattr -cr "/Applications/Win Log.app"</code></pre>
+                </li>
+              </ul>
+            </div>
+          </details>
+
+          <details id="windows-warning">
+            <summary>Windows says “Windows protected your PC”</summary>
+            <div class="answer">
+              <p>Win Log is not code-signed yet, so Microsoft Defender SmartScreen shows this warning. Click “More info”, then “Run anyway”. Only do this for a file you downloaded from this page or from the <a data-gh="releases" href="https://github.com/ayushCodes/win-log/releases">Releases page</a>.</p>
+              <p>Your browser may also say that the file is not commonly downloaded. If it does, choose to keep the file.</p>
+            </div>
+          </details>
+
+          <details id="find-icon">
+            <summary>I can’t find the icon</summary>
+            <div class="answer">
+              <p>Win Log has no main window. Look for its star icon:</p>
+              <ul>
+                <li><strong>Mac:</strong> in the menu bar at the top right of the screen. If the menu bar is full, macOS hides some icons, for example behind the camera notch. Quit another menu bar app to make room.</li>
+                <li><strong>Windows:</strong> in the system tray at the bottom right of the screen. It may be hidden behind the ^ arrow (“Show hidden icons”). Drag it onto the taskbar to keep it visible.</li>
+              </ul>
+              <p>Still not sure? Open Win Log again from Applications on a Mac, or from the Start menu on Windows. If it was already running, the “Add a win” window opens. If it was not, it starts.</p>
+              <p>Closing a Win Log window does not quit the app.</p>
+            </div>
+          </details>
+
+          <details id="uninstall">
+            <summary>How do I uninstall Win Log?</summary>
+            <div class="answer">
+              <ul>
+                <li><strong>Mac:</strong> choose “Quit” in the Win Log menu, then drag Win Log from Applications to the Trash.</li>
+                <li><strong>Windows:</strong> open Settings &gt; Apps &gt; Installed apps (Apps &amp; features on Windows 10), find Win Log and choose “Uninstall”.</li>
+              </ul>
+              <p>Your wins stay in the data folder until you delete that folder. See <a href="#where-saved">where your wins are saved</a>.</p>
+            </div>
+          </details>
+
+          <details id="free">
+            <summary>Is it free?</summary>
+            <div class="answer">
+              <p>Yes. Win Log is free and open source, under the <a data-gh="license" href="https://github.com/ayushCodes/win-log/blob/main/LICENSE">MIT license</a>. There is no account, no subscription and no ads. You can read all of its code on <a data-gh="repo" href="https://github.com/ayushCodes/win-log">GitHub</a>.</p>
+            </div>
+          </details>
+
+          <details id="updates">
+            <summary>Why are there no automatic updates?</summary>
+            <div class="answer">
+              <p>An auto-updater has to connect to the internet, and Win Log never does. To check for a new version, choose “About Win Log” &gt; “Check for updates”. This opens the <a data-gh="releases" href="https://github.com/ayushCodes/win-log/releases">Releases page</a> in your browser.</p>
+              <p>To update, choose “Quit” in the Win Log menu. Then download the new version and install it the same way as the first time. Your wins stay where they are. You may see the first-time warning again, because Win Log is not code-signed yet.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav aria-label="Project links">
+        <ul class="footer-links" role="list">
+          <li><a data-gh="repo" href="https://github.com/ayushCodes/win-log">GitHub</a></li>
+          <li><a data-gh="releases" href="https://github.com/ayushCodes/win-log/releases">Releases</a></li>
+          <li><a data-gh="issues" href="https://github.com/ayushCodes/win-log/issues">Report a problem</a></li>
+          <li><a data-gh="license" href="https://github.com/ayushCodes/win-log/blob/main/LICENSE">MIT license</a></li>
+          <li><a data-gh="privacy" href="https://github.com/ayushCodes/win-log/blob/main/PRIVACY.md">Privacy policy</a></li>
+        </ul>
+      </nav>
+      <p>© 2026 Ayush Bundela</p>
+    </div>
+  </footer>
+</body>
+</html>

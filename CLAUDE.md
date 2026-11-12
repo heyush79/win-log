@@ -165,6 +165,22 @@ plain text.
 - Check Electron APIs against `node_modules/electron/electron.d.ts` before using them: in this
   version `clipboard.writeText` and `readText` return promises.
 
+## Website (GitHub Pages, free)
+
+- `docs/` is the website, served by GitHub Pages from `/docs` on `main`: one page, plain HTML,
+  CSS and JS, no framework, no build step, no trackers, no external fonts, scripts or images.
+- Strict CSP in a meta tag (`default-src 'self'`, `connect-src https://api.github.com`). No
+  inline scripts or styles.
+- `docs/config.js` holds the GitHub owner and repo. `docs/download.js` picks the download button
+  for the visitor's computer, asks the GitHub API once for the latest release and points the
+  buttons at the `-mac.dmg` and `-windows-setup.exe` files. Anything that goes wrong (offline,
+  rate limit, no release yet, a missing file) leaves the buttons on the Releases page. The same
+  github.com links are also written in `index.html` for visitors without JavaScript.
+- The "no network" rule is about the app. The website makes exactly that one request, and the
+  page says so.
+- The demo box is a placeholder until `docs/media/demo.gif` is recorded.
+- The website and `README.md` describe the app. Update them when a feature changes.
+
 ## Commands
 
 - `npm start` run the app in development.
