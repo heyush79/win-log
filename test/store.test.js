@@ -295,3 +295,116 @@ test('settings: loginItemSetUp is only true when saved as true', async (t) => {
   await again.loadSettings();
   assert.equal(again.getSettings().loginItemSetUp, true);
 });
+
+const fullEntry = (id, text, tag = null) => ({
+  id,
+  date: '2026-11-10',
+  text,
+  tag,
+  createdAt: '2026-11-10T09:00:00.000Z',
+  updatedAt: '2026-11-10T09:00:00.000Z',
+});
+
+test('editEntry saves the new text, tag and updatedAt, and survives a restart', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir, { now: fixedNow('2026-11-12T15:30:00.000Z') });
+  await store.load();
+  await store.addEntries([fullEntry('a', 'First #bugfix', 'bugfix'), fullEntry('b', 'Second')]);
+
+  const edited = await store.editEntry('a', 'First, improved #review');
+  assert.equal(edited.text, 'First, improved #review');
+  assert.equal(edited.tag, 'review');
+  assert.equal(edited.updatedAt, '2026-11-12T15:30:00.000Z');
+  assert.equal(edited.createdAt, '2026-11-10T09:00:00.000Z');
+
+  const again = createStore(dir);
+  await again.load();
+  assert.deepEqual(again.getEntries(), [edited, fullEntry('b', 'Second')]);
+  assert.equal(fs.existsSync(path.join(dir, 'wins.json.tmp')), false);
+});
+
+test('editEntry rejects a missing win or invalid text and leaves the file alone', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir);
+  await store.load();
+  await store.addEntries([fullEntry('a', 'First')]);
+  const before = await fsp.readFile(path.join(dir, 'wins.json'), 'utf8');
+
+  await assert.rejects(store.editEntry('nope', 'x'), { code: 'NOT_FOUND' });
+  await assert.rejects(store.editEntry('a', '   '), { code: 'INVALID_TEXT' });
+  await assert.rejects(store.editEntry('a', 'two\nlines'), { code: 'INVALID_TEXT' });
+
+  assert.equal(await fsp.readFile(path.join(dir, 'wins.json'), 'utf8'), before);
+  assert.deepEqual(store.getEntries(), [fullEntry('a', 'First')]);
+  // The queue still works after the rejections.
+  await store.editEntry('a', 'First again');
+  assert.equal(store.getEntries()[0].text, 'First again');
+});
+
+test('editEntry with unchanged text does not write the file', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir);
+  await store.load();
+  await store.addEntries([fullEntry('a', 'Same')]);
+  const file = path.join(dir, 'wins.json');
+  const before = (await fsp.stat(file)).mtimeMs;
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const result = await store.editEntry('a', '  Same ');
+  assert.equal(result.updatedAt, '2026-11-10T09:00:00.000Z');
+  assert.equal((await fsp.stat(file)).mtimeMs, before);
+});
+
+test('deleteEntry removes one win from disk and memory; a missing win is a no-op', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir);
+  await store.load();
+  await store.addEntries([fullEntry('a', 'First'), fullEntry('b', 'Second'), fullEntry('c', 'Third')]);
+
+  const removed = await store.deleteEntry('b');
+  assert.equal(removed.text, 'Second');
+  assert.deepEqual(store.getEntries().map((e) => e.id), ['a', 'c']);
+  assert.deepEqual((await readJson(path.join(dir, 'wins.json'))).entries.map((e) => e.id), ['a', 'c']);
+
+  assert.equal(await store.deleteEntry('b'), null);
+  assert.deepEqual(store.getEntries().map((e) => e.id), ['a', 'c']);
+});
+
+test('the first edit or delete of the day backs up the file as it was', async (t) => {
+  const dir = await tempDir(t);
+  const day1 = createStore(dir, { now: fixedNow('2026-11-10T10:00:00') });
+  await day1.load();
+  await day1.addEntries([fullEntry('a', 'First'), fullEntry('b', 'Second')]);
+
+  const day2 = createStore(dir, { now: fixedNow('2026-11-11T10:00:00') });
+  await day2.load();
+  await day2.deleteEntry('a');
+  const backup = await readJson(path.join(dir, 'backups', 'wins-2026-11-11.json'));
+  assert.deepEqual(backup.entries.map((e) => e.id), ['a', 'b'], 'the deleted win is still in the backup');
+});
+
+test('a failed edit or delete leaves the saved data and memory unchanged', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir);
+  await store.load();
+  await store.addEntries([fullEntry('a', 'First')]);
+
+  await fsp.mkdir(path.join(dir, 'wins.json.tmp')); // makes the next write fail
+  await assert.rejects(store.editEntry('a', 'Changed'));
+  await assert.rejects(store.deleteEntry('a'));
+  assert.deepEqual(store.getEntries(), [fullEntry('a', 'First')]);
+  assert.deepEqual((await readJson(path.join(dir, 'wins.json'))).entries, [fullEntry('a', 'First')]);
+});
+
+test('adds, edits and deletes started together are applied in order', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir);
+  await store.load();
+  await Promise.all([
+    store.addEntries([fullEntry('a', 'First')]),
+    store.addEntries([fullEntry('b', 'Second')]),
+    store.editEntry('a', 'First edited'),
+    store.deleteEntry('b'),
+    store.addEntries([fullEntry('c', 'Third')]),
+  ]);
+  assert.deepEqual((await readJson(path.join(dir, 'wins.json'))).entries.map((e) => e.text), ['First edited', 'Third']);
+});

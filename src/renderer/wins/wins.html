@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'" />
+    <title>My Wins</title>
+    <link rel="stylesheet" href="../common.css" />
+    <script src="../../lib/dates.js" defer></script>
+    <script src="../../lib/search.js" defer></script>
+    <script src="../../lib/group.js" defer></script>
+    <script src="../../lib/accelerator.js" defer></script>
+    <script src="wins.js" defer></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="wins-header">
+        <div>
+          <h1>My Wins</h1>
+          <p id="month-count" class="hint"></p>
+        </div>
+        <button id="add" type="button" class="primary">Add a win</button>
+      </header>
+
+      <div id="tools" hidden>
+        <div class="search-row">
+          <label for="search" class="visually-hidden">Search wins</label>
+          <input id="search" type="search" placeholder="Search" autocomplete="off" />
+          <kbd class="key" aria-hidden="true">/</kbd>
+        </div>
+      </div>
+      <div id="tags" class="chips" role="group" aria-label="Filter by tag" hidden></div>
+      <p id="status" class="hint" role="status"></p>
+
+      <div id="list" class="win-list" role="region" aria-label="Wins" aria-describedby="keys" hidden></div>
+
+      <section id="empty" class="empty" aria-labelledby="empty-title" hidden>
+        <h2 id="empty-title">No wins yet</h2>
+        <p>Wins you add show up here, grouped by week.</p>
+        <p id="empty-how"></p>
+        <p id="empty-reminder"></p>
+        <button id="empty-add" type="button" class="primary">Add your first win</button>
+      </section>
+
+      <section id="no-match" class="empty" aria-labelledby="no-match-title" hidden>
+        <h2 id="no-match-title">No wins match</h2>
+        <p>Try a different word or tag.</p>
+        <button id="clear" type="button">Show all wins</button>
+      </section>
+
+      <p id="keys" class="hint" hidden>↑ ↓ move between wins · Enter edits · Delete removes · / searches</p>
+    </main>
+  </body>
+</html>

@@ -15,6 +15,7 @@ const fsp = require('node:fs/promises');
 const path = require('node:path');
 const { localDate, localFileStamp } = require('../lib/dates');
 const { isValidTime, isValidDays } = require('../lib/schedule');
+const { editEntry: editEntryData, deleteEntry: deleteEntryData } = require('../lib/entries');
 const {
   defaultShortcut,
   isValidAccelerator,
@@ -243,13 +244,45 @@ function createStore(dir, { now = () => new Date(), platform = process.platform 
     return data.entries;
   }
 
-  /** Appends entries and saves. Memory is only updated after the file is safely written. */
-  function addEntries(newEntries) {
+  /**
+   * The one way wins are changed. `compute(entries)` returns { entries, result } with a new
+   * entries array (or the same array for "no change"). The new list is written first;
+   * memory is only updated after the file is safely on disk. Resolves to `result`.
+   */
+  function changeEntries(compute) {
     return enqueue(async () => {
-      const next = { ...data, entries: [...getEntries(), ...newEntries] };
+      const current = getEntries();
+      const { entries, result } = compute(current);
+      if (entries === current) return result; // nothing changed, so nothing to write
+      const next = { ...data, entries };
       await backupIfNeeded();
       await writeJsonAtomic(winsPath, next);
       data = next;
+      return result;
+    });
+  }
+
+  /** Appends entries and saves. */
+  function addEntries(newEntries) {
+    return changeEntries((entries) => ({ entries: [...entries, ...newEntries] }));
+  }
+
+  /**
+   * Changes the text of one win; the tag is re-read from the text and updatedAt is set.
+   * Resolves to the updated win. Rejects with code NOT_FOUND or INVALID_TEXT.
+   */
+  function editEntry(id, text) {
+    return changeEntries((entries) => {
+      const { entries: next, entry } = editEntryData(entries, id, text, now());
+      return { entries: next, result: entry };
+    });
+  }
+
+  /** Deletes one win. Resolves to the deleted win, or null if it was already gone. */
+  function deleteEntry(id) {
+    return changeEntries((entries) => {
+      const { entries: next, entry } = deleteEntryData(entries, id);
+      return { entries: next, result: entry };
     });
   }
 
@@ -300,6 +333,8 @@ function createStore(dir, { now = () => new Date(), platform = process.platform 
     load,
     getEntries,
     addEntries,
+    editEntry,
+    deleteEntry,
     loadSettings,
     getSettings,
     updateSettings,

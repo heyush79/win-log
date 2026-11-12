@@ -3,7 +3,7 @@
 const { app, dialog, Menu } = require('electron');
 const { createStore } = require('./store');
 const { createTray } = require('./tray');
-const { showEntryWindow, showSettingsWindow } = require('./windows');
+const { showWindow, showEntryWindow, showSettingsWindow } = require('./windows');
 const { registerIpc } = require('./ipc');
 const { startReminder } = require('./reminder');
 const { initShortcut, unregisterShortcuts } = require('./shortcut');
@@ -77,9 +77,11 @@ function start() {
       onSettingsSaved() {
         reminder.check(); // e.g. a reminder time that is already past today shows now
       },
+      onWinsChanged() {},
     });
     createTray({
       onAddWin: () => showEntryWindow(),
+      onMyWins: () => showWindow('wins'),
       onSettings: () => showSettingsWindow(),
       onQuit: () => app.quit(),
     });

@@ -27,7 +27,13 @@ the answers locally. At review time it exports wins for a date range as Markdown
 - Entry: `date`, `text`, optional single `tag`. The tag is typed inline (`#bugfix`); the first
   `#tag` in the line is stored. Tags start with a letter (`#123` is not a tag). Each non-empty
   line typed becomes one entry.
-- My Wins window: grouped by week (Monday start), search box, edit, delete (with confirmation).
+- My Wins window: grouped by week (Monday start), newest first. Header "12 wins this month".
+  Search (every word must match the text, tag or date; case and accents are ignored), tag filter
+  chips, a friendly empty state. Edit changes the text only (one line): the tag is re-read from
+  the text and `updatedAt` is set; `date` and `createdAt` never change. Delete asks first, and
+  the question is asked by the main process so no page can skip it.
+  Keyboard: `/` focuses search, ↑/↓ move between wins, Enter edits the selected win, Delete
+  (Backspace on Mac) asks to delete it, Esc cancels an edit, clears the search, then closes.
 - Export window: date range, Markdown bullets grouped by tag (untagged under "Other"),
   "Copy to clipboard" and "Save as .md". Optional "Include dates" checkbox, off by default.
 - Global shortcut to add a win, editable in Settings. Default: `Control+Alt+W` (⌃⌥W) on Mac,
@@ -45,9 +51,10 @@ the answers locally. At review time it exports wins for a date range as Markdown
 - `src/main/` main process: `main.js`, `tray.js`, `windows.js`, `reminder.js`, `shortcut.js`,
   `loginItem.js`, `ipc.js`, `store.js`.
 - `src/lib/` pure logic with no Electron imports: `dates.js`, `schedule.js`, `tags.js`,
-  `accelerator.js`, `exportMarkdown.js`, `search.js`. Put logic here so it can be unit tested.
-  Files that pages also need (e.g. `accelerator.js`) use a small UMD wrapper with no imports, so
-  they work with `require()` in main and a `<script>` tag in a page.
+  `entries.js` (create, edit, delete), `group.js` (order, weeks, counts), `search.js`,
+  `accelerator.js`, `exportMarkdown.js`. Put logic here so it can be unit tested.
+  Files that pages also need (`dates.js`, `group.js`, `search.js`, `accelerator.js`) use a small
+  UMD wrapper, so they work with `require()` in main and a `<script>` tag in a page.
 - `src/preload/preload.js` exposes a small `window.winlog` API through `contextBridge`.
 - `src/renderer/<entry|wins|export|settings>/` one HTML + JS file per window, shared `common.css`.
 - `assets/` tray and app icons. `test/` holds `node:test` tests.
@@ -65,6 +72,9 @@ the answers locally. At review time it exports wins for a date range as Markdown
 
 - Only the main process reads or writes the data files, through `store.js` and one serialized
   save queue. Renderers go through IPC.
+- Every change to wins (add, edit, delete, import) goes through `changeEntries` in `store.js`:
+  build the new list with a pure function, write it, and only then update memory. After a
+  change, main sends `wins:changed` to every window so open lists refresh.
 - Saves are atomic: write a temp file, fsync, rename. Retry rename on EPERM/EBUSY (Windows).
 - If `wins.json` cannot be parsed, never overwrite it. Move it to `wins.corrupt-<timestamp>.json`,
   load the newest backup, and tell the user.

@@ -8,7 +8,7 @@
     <script src="entry.js" defer></script>
   </head>
   <body>
-    <main>
+    <main class="page">
       <h1><label for="text">What did you do today?</label></h1>
       <p class="hint">One win per line. Add a tag if you like: #bugfix, #learning, #helped-someone.</p>
       <textarea
@@ -20,7 +20,7 @@
       <div class="actions">
         <span id="status" class="status" role="status"></span>
         <kbd id="save-hint"></kbd>
-        <button id="save" type="button" disabled>Save</button>
+        <button id="save" type="button" class="primary" disabled>Save</button>
       </div>
       <section id="today-section" class="today" hidden>
         <h2>Today</h2>

@@ -15,6 +15,14 @@ const PAGES = {
     minWidth: 360,
     minHeight: 300,
   },
+  wins: {
+    file: 'wins/wins.html',
+    title: 'My Wins',
+    width: 640,
+    height: 680,
+    minWidth: 440,
+    minHeight: 380,
+  },
   settings: {
     file: 'settings/settings.html',
     title: 'Win Log Settings',
@@ -25,6 +33,9 @@ const PAGES = {
     minimizable: false,
   },
 };
+
+// The windows a page may ask to open (see 'window:open' in ipc.js).
+const WINDOW_NAMES = Object.keys(PAGES);
 
 // One window per page at most.
 const openWindows = new Map();
@@ -52,6 +63,7 @@ function bringToFront(win) {
  * focus: false shows it without taking keyboard focus from the app in use.
  */
 function showWindow(name, { focus = true } = {}) {
+  if (!Object.hasOwn(PAGES, name)) throw new Error(`Unknown window: ${name}`);
   const existing = openWindows.get(name);
   if (existing && !existing.isDestroyed()) {
     if (focus) bringToFront(existing);
@@ -77,6 +89,12 @@ function showWindow(name, { focus = true } = {}) {
   return win;
 }
 
+/** The open window for a page, or null. */
+function getWindow(name) {
+  const win = openWindows.get(name);
+  return win && !win.isDestroyed() ? win : null;
+}
+
 /** "Add a win". The reminder passes { focus: false } so it never steals keystrokes. */
 function showEntryWindow(options) {
   return showWindow('entry', options);
@@ -86,4 +104,11 @@ function showSettingsWindow() {
   return showWindow('settings');
 }
 
-module.exports = { showEntryWindow, showSettingsWindow, RENDERER_DIR };
+module.exports = {
+  showWindow,
+  getWindow,
+  showEntryWindow,
+  showSettingsWindow,
+  RENDERER_DIR,
+  WINDOW_NAMES,
+};

@@ -16,13 +16,13 @@ function iconPath() {
   return path.join(ASSETS, 'tray.ico');
 }
 
-function createTray({ onAddWin, onSettings, onQuit }) {
+function createTray({ onAddWin, onMyWins, onSettings, onQuit }) {
   tray = new Tray(iconPath());
   tray.setToolTip('Win Log');
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Add a win', click: onAddWin },
-      { label: 'My Wins', enabled: false }, // window not built yet
+      { label: 'My Wins', click: onMyWins },
       { type: 'separator' },
       { label: 'Settings…', click: onSettings },
       { label: 'Quit', click: onQuit },

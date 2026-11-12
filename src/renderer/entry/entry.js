@@ -81,3 +81,5 @@ function loadToday() {
 loadToday();
 // The window may have been left open since yesterday; refresh when the user comes back to it.
 window.addEventListener('focus', loadToday);
+// A win may be edited or deleted in My Wins while this window is open.
+window.winlog.onWinsChanged(loadToday);
