@@ -23,6 +23,14 @@ const PAGES = {
     minWidth: 440,
     minHeight: 380,
   },
+  export: {
+    file: 'export/export.html',
+    title: 'Export wins',
+    width: 580,
+    height: 640,
+    minWidth: 460,
+    minHeight: 440,
+  },
   settings: {
     file: 'settings/settings.html',
     title: 'Win Log Settings',

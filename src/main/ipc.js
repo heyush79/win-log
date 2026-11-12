@@ -6,12 +6,14 @@
 const crypto = require('node:crypto');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, ipcMain } = require('electron');
 const { localDate } = require('../lib/dates');
 const { isValidTime, isValidDays } = require('../lib/schedule');
 const { isValidAccelerator } = require('../lib/accelerator');
 const { isValidId, parseWinLines, cleanWinText, createEntries } = require('../lib/entries');
 const { sortNewestFirst } = require('../lib/group');
+const { parseExportOptions, buildExport, exportFileName } = require('../lib/exportMarkdown');
+const { writeFileAtomic } = require('./store');
 const { RENDERER_DIR, WINDOW_NAMES, showWindow } = require('./windows');
 const { changeShortcut, isShortcutActive } = require('./shortcut');
 const { loginItemApplies, readLoginItem, writeLoginItem } = require('./loginItem');
@@ -172,6 +174,56 @@ function registerIpc(store, { onSettingsSaved, onWinsChanged }) {
     const deleted = await store.deleteEntry(id);
     if (deleted) winsChanged();
     return { deleted: Boolean(deleted) };
+  });
+
+  // ----- Export -----
+  // A page only sends the options. The text is always built here from the saved wins,
+  // so a page can never make the app copy or save something else.
+
+  /** Returns { options, text, count }, or null if the date range is not valid. */
+  function exportFor(rawOptions) {
+    let options;
+    try {
+      options = parseExportOptions(rawOptions, localDate());
+    } catch (err) {
+      if (err.code === 'INVALID_RANGE') return null;
+      throw err;
+    }
+    return { options, ...buildExport(store.getEntries(), options) };
+  }
+
+  handle('export:preview', (_event, rawOptions) => {
+    const result = exportFor(rawOptions);
+    if (!result) return { ok: false, error: 'invalid-range' };
+    const { options, text, count } = result;
+    return { ok: true, from: options.from, to: options.to, text, count };
+  });
+
+  handle('export:copy', async (_event, rawOptions) => {
+    const result = exportFor(rawOptions);
+    if (!result) return { ok: false, error: 'invalid-range' };
+    if (result.count === 0) return { ok: false, error: 'empty' };
+    await clipboard.writeText(result.text); // a promise in this Electron version
+    return { ok: true, count: result.count };
+  });
+
+  handle('export:save', async (event, rawOptions) => {
+    const result = exportFor(rawOptions);
+    if (!result) return { ok: false, error: 'invalid-range' };
+    if (result.count === 0) return { ok: false, error: 'empty' };
+    const markdown = result.options.format === 'markdown';
+    const options = {
+      title: 'Save your wins',
+      defaultPath: path.join(app.getPath('documents'), exportFileName(result.options)),
+      filters: [markdown ? { name: 'Markdown', extensions: ['md'] } : { name: 'Plain text', extensions: ['txt'] }],
+    };
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const { canceled, filePath } = parent
+      ? await dialog.showSaveDialog(parent, options)
+      : await dialog.showSaveDialog(options);
+    if (canceled || !filePath) return { ok: false, canceled: true };
+    await writeFileAtomic(filePath, `${result.text}\n`, `${filePath}.winlog-tmp`);
+    return { ok: true, count: result.count, fileName: path.basename(filePath) };
   });
 
   // ----- Windows -----

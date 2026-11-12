@@ -118,19 +118,29 @@ async function syncDir(dir) {
   }
 }
 
-/** Writes JSON to `file` so that a crash leaves either the old or the new file, never half of one. */
-async function writeJsonAtomic(file, value) {
-  const tmp = `${file}.tmp`;
-  const json = `${JSON.stringify(value, null, 2)}\n`;
+/**
+ * Writes text to `file` so that a crash leaves either the old or the new file, never half of one.
+ * `tmp` is the temporary file; pass a name of our own when `file` is in a folder the user chose.
+ */
+async function writeFileAtomic(file, text, tmp = `${file}.tmp`) {
   const fh = await fsp.open(tmp, 'w');
   try {
-    await fh.writeFile(json, 'utf8');
+    await fh.writeFile(text, 'utf8');
     await fh.sync();
   } finally {
     await fh.close();
   }
-  await renameWithRetry(tmp, file);
+  try {
+    await renameWithRetry(tmp, file);
+  } catch (err) {
+    await fsp.rm(tmp, { force: true }).catch(() => {}); // do not leave the temp file behind
+    throw err;
+  }
   await syncDir(path.dirname(file));
+}
+
+function writeJsonAtomic(file, value) {
+  return writeFileAtomic(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 async function exists(file) {
@@ -345,6 +355,7 @@ function createStore(dir, { now = () => new Date(), platform = process.platform 
 
 module.exports = {
   createStore,
+  writeFileAtomic,
   writeJsonAtomic,
   parseWins,
   normalizeSettings,

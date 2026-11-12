@@ -34,8 +34,16 @@ the answers locally. At review time it exports wins for a date range as Markdown
   the question is asked by the main process so no page can skip it.
   Keyboard: `/` focuses search, ↑/↓ move between wins, Enter edits the selected win, Delete
   (Backspace on Mac) asks to delete it, Esc cancels an edit, clears the search, then closes.
-- Export window: date range, Markdown bullets grouped by tag (untagged under "Other"),
-  "Copy to clipboard" and "Save as .md". Optional "Include dates" checkbox, off by default.
+- Export window: range presets (This month, Last month, Last 3 months [default], Last 6 months,
+  This year, Custom), a live preview, "Copy to clipboard" and "Save as file…".
+  Formats: Markdown bullets under a `##` heading per tag (headings A–Z, untagged last under
+  "Other"; no headings at all if nothing is tagged), or plain text for HR tools that do not
+  accept Markdown (same layout, no `##`, no escaping). Wins inside a group are oldest first.
+  The tag is taken out of the bullet because it is already the heading. Markdown characters in
+  the text are escaped so it shows as typed. "Include dates" (off by default) adds
+  "(3 Nov 2026)" at the end of each bullet. "Last N months" ends today and starts the day after
+  the same date N months ago. The page only sends options; main builds the text, writes the
+  clipboard and shows the save dialog.
 - Global shortcut to add a win, editable in Settings. Default: `Control+Alt+W` (⌃⌥W) on Mac,
   `Control+Alt+Shift+W` on Windows (plain Ctrl+Alt+W would block AltGr characters such as `|`
   and `å`, because Windows treats AltGr as Ctrl+Alt). The pre-1.0 default
@@ -52,7 +60,8 @@ the answers locally. At review time it exports wins for a date range as Markdown
   `loginItem.js`, `ipc.js`, `store.js`.
 - `src/lib/` pure logic with no Electron imports: `dates.js`, `schedule.js`, `tags.js`,
   `entries.js` (create, edit, delete), `group.js` (order, weeks, counts), `search.js`,
-  `accelerator.js`, `exportMarkdown.js`. Put logic here so it can be unit tested.
+  `accelerator.js`, `exportMarkdown.js` (range presets, Markdown and plain text). Put logic
+  here so it can be unit tested.
   Files that pages also need (`dates.js`, `group.js`, `search.js`, `accelerator.js`) use a small
   UMD wrapper, so they work with `require()` in main and a `<script>` tag in a page.
 - `src/preload/preload.js` exposes a small `window.winlog` API through `contextBridge`.
@@ -76,6 +85,8 @@ the answers locally. At review time it exports wins for a date range as Markdown
   build the new list with a pure function, write it, and only then update memory. After a
   change, main sends `wins:changed` to every window so open lists refresh.
 - Saves are atomic: write a temp file, fsync, rename. Retry rename on EPERM/EBUSY (Windows).
+  Files written to a folder the user chose (exports, backups) use the same `writeFileAtomic`
+  with a temp name of our own (`<file>.winlog-tmp`).
 - If `wins.json` cannot be parsed, never overwrite it. Move it to `wins.corrupt-<timestamp>.json`,
   load the newest backup, and tell the user.
 - Build dates from local date parts. Never use `toISOString()` for an entry date.

@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld('winlog', {
     ipcRenderer.on('wins:changed', () => callback());
   },
 
+  // Export: the options are { preset, from, to, format, includeDates }
+  previewExport: (options) => ipcRenderer.invoke('export:preview', options),
+  copyExport: (options) => ipcRenderer.invoke('export:copy', options),
+  saveExport: (options) => ipcRenderer.invoke('export:save', options),
+
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (changes) => ipcRenderer.invoke('settings:update', changes),

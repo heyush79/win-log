@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'" />
+    <title>Export wins</title>
+    <link rel="stylesheet" href="../common.css" />
+    <script src="export.js" defer></script>
+  </head>
+  <body>
+    <main class="page">
+      <h1>Export wins</h1>
+
+      <div class="fields">
+        <div class="field">
+          <label for="preset">Range</label>
+          <select id="preset">
+            <option value="this-month">This month</option>
+            <option value="last-month">Last month</option>
+            <option value="last-3-months" selected>Last 3 months</option>
+            <option value="last-6-months">Last 6 months</option>
+            <option value="this-year">This year</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="from">From</label>
+          <input type="date" id="from" />
+        </div>
+        <div class="field">
+          <label for="to">To</label>
+          <input type="date" id="to" />
+        </div>
+      </div>
+
+      <div class="fields">
+        <fieldset class="field">
+          <legend>Format</legend>
+          <div class="choices">
+            <label class="choice"><input type="radio" name="format" value="markdown" checked />Markdown</label>
+            <label class="choice"><input type="radio" name="format" value="text" />Plain text</label>
+          </div>
+        </fieldset>
+        <div class="field">
+          <span class="field-label" aria-hidden="true">&nbsp;</span>
+          <div class="choices">
+            <label class="choice"><input type="checkbox" id="dates" />Include dates</label>
+          </div>
+        </div>
+      </div>
+      <p class="hint">
+        Wins are grouped by tag. Wins without a tag go under “Other”. Choose plain text if the place
+        you paste into does not understand Markdown.
+      </p>
+
+      <label for="preview" class="section-label">Preview</label>
+      <textarea id="preview" class="preview" readonly placeholder="No wins in this range."></textarea>
+
+      <div class="actions">
+        <span id="status" class="status" role="status"></span>
+        <button id="save" type="button" disabled>Save as file…</button>
+        <button id="copy" type="button" class="primary" disabled>Copy to clipboard</button>
+      </div>
+    </main>
+  </body>
+</html>

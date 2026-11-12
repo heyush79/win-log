@@ -82,6 +82,7 @@ function start() {
     createTray({
       onAddWin: () => showEntryWindow(),
       onMyWins: () => showWindow('wins'),
+      onExport: () => showWindow('export'),
       onSettings: () => showSettingsWindow(),
       onQuit: () => app.quit(),
     });

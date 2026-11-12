@@ -443,6 +443,7 @@ document.addEventListener('keydown', (event) => {
 // ----- Buttons -----
 
 document.getElementById('add').addEventListener('click', () => window.winlog.openWindow('entry'));
+document.getElementById('export').addEventListener('click', () => window.winlog.openWindow('export'));
 document.getElementById('empty-add').addEventListener('click', () => window.winlog.openWindow('entry'));
 document.getElementById('clear').addEventListener('click', () => {
   clearFilters();
