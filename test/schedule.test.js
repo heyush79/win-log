@@ -53,6 +53,21 @@ test('a reminder time before now asks right away, e.g. after changing it in Sett
   assert.equal(shouldPrompt(at(THU, 14, 0), settings({ reminderTime: '09:30' })), true);
 });
 
+test('skipped when a win is already dated today', () => {
+  assert.equal(shouldPrompt(at(THU, 18, 30), settings(), 1), false);
+  assert.equal(shouldPrompt(at(THU, 23, 0), settings(), 3), false);
+});
+
+test('asks when there are no wins today (wins on other days do not count)', () => {
+  assert.equal(shouldPrompt(at(THU, 18, 30), settings(), 0), true);
+  assert.equal(shouldPrompt(at(THU, 18, 30), settings()), true); // default: none today
+});
+
+test('a win today does not matter before the reminder time or on a day that is off', () => {
+  assert.equal(shouldPrompt(at(THU, 9, 0), settings(), 0), false);
+  assert.equal(shouldPrompt(at(SAT, 19, 0), settings(), 0), false);
+});
+
 test('an invalid time never prompts', () => {
   assert.equal(shouldPrompt(at(THU, 20, 0), settings({ reminderTime: '' })), false);
   assert.equal(shouldPrompt(at(THU, 20, 0), settings({ reminderTime: '6pm' })), false);

@@ -15,38 +15,46 @@ const fsp = require('node:fs/promises');
 const path = require('node:path');
 const { localDate, localFileStamp } = require('../lib/dates');
 const { isValidTime, isValidDays } = require('../lib/schedule');
+const {
+  defaultShortcut,
+  isValidAccelerator,
+  LEGACY_DEFAULT_SHORTCUT,
+} = require('../lib/accelerator');
 
 const SCHEMA_VERSION = 1;
 const BACKUPS_KEPT = 14;
 const BACKUP_NAME_RE = /^wins-\d{4}-\d{2}-\d{2}\.json$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const DEFAULT_SETTINGS = Object.freeze({
-  reminderTime: '18:00',
-  reminderDays: Object.freeze([1, 2, 3, 4, 5]), // Mon–Fri; an empty list turns the reminder off
-  shortcut: 'CommandOrControl+Shift+W',
-  openAtLogin: true,
-  lastPromptedDate: null,
-});
-
 function emptyData() {
   return { schemaVersion: SCHEMA_VERSION, entries: [] };
 }
 
+/** Settings used when settings.json is missing or a field in it is invalid. */
+function defaultSettings(platform = process.platform) {
+  return {
+    reminderTime: '18:00',
+    reminderDays: [1, 2, 3, 4, 5], // Mon–Fri; an empty list turns the reminder off
+    shortcut: defaultShortcut(platform),
+    openAtLogin: true, // what the user chose; the OS login item is the source of truth (loginItem.js)
+    loginItemSetUp: false, // true once the installed app has set up the login item on its first run
+    lastPromptedDate: null,
+  };
+}
+
 /** Returns complete settings: every missing or invalid field is replaced by its default. */
-function normalizeSettings(raw) {
+function normalizeSettings(raw, platform = process.platform) {
   const s = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const d = defaultSettings(platform);
   return {
     ...s, // keep fields that a newer version may have added
-    reminderTime: isValidTime(s.reminderTime) ? s.reminderTime : DEFAULT_SETTINGS.reminderTime,
-    reminderDays: isValidDays(s.reminderDays)
-      ? [...s.reminderDays].sort((a, b) => a - b)
-      : [...DEFAULT_SETTINGS.reminderDays],
+    reminderTime: isValidTime(s.reminderTime) ? s.reminderTime : d.reminderTime,
+    reminderDays: isValidDays(s.reminderDays) ? [...s.reminderDays].sort((a, b) => a - b) : d.reminderDays,
+    // The pre-1.0 default clashed with "Close window" in browsers; nobody chose it on purpose.
     shortcut:
-      typeof s.shortcut === 'string' && s.shortcut.length > 0 && s.shortcut.length <= 100
-        ? s.shortcut
-        : DEFAULT_SETTINGS.shortcut,
-    openAtLogin: typeof s.openAtLogin === 'boolean' ? s.openAtLogin : DEFAULT_SETTINGS.openAtLogin,
+      isValidAccelerator(s.shortcut) && s.shortcut !== LEGACY_DEFAULT_SHORTCUT ? s.shortcut : d.shortcut,
+    openAtLogin: typeof s.openAtLogin === 'boolean' ? s.openAtLogin : d.openAtLogin,
+    loginItemSetUp: s.loginItemSetUp === true,
     lastPromptedDate:
       typeof s.lastPromptedDate === 'string' && DATE_RE.test(s.lastPromptedDate)
         ? s.lastPromptedDate
@@ -135,9 +143,9 @@ async function exists(file) {
 
 /**
  * @param {string} dir  folder that holds wins.json (the app's userData folder)
- * @param {{ now?: () => Date }} [options]  `now` is for tests
+ * @param {{ now?: () => Date, platform?: string }} [options]  both are for tests
  */
-function createStore(dir, { now = () => new Date() } = {}) {
+function createStore(dir, { now = () => new Date(), platform = process.platform } = {}) {
   const winsPath = path.join(dir, 'wins.json');
   const settingsPath = path.join(dir, 'settings.json');
   const backupDir = path.join(dir, 'backups');
@@ -256,15 +264,15 @@ function createStore(dir, { now = () => new Date() } = {}) {
       raw = await fsp.readFile(settingsPath, 'utf8');
     } catch (err) {
       if (err.code !== 'ENOENT') throw err;
-      settings = normalizeSettings({});
+      settings = normalizeSettings({}, platform);
       return;
     }
     try {
-      settings = normalizeSettings(JSON.parse(raw));
+      settings = normalizeSettings(JSON.parse(raw), platform);
     } catch {
       const corruptFile = path.join(dir, `settings.corrupt-${localFileStamp(now())}.json`);
       await renameWithRetry(settingsPath, corruptFile);
-      settings = normalizeSettings({});
+      settings = normalizeSettings({}, platform);
     }
   }
 
@@ -277,7 +285,7 @@ function createStore(dir, { now = () => new Date() } = {}) {
   /** Merges `patch` into the settings and saves. Memory is only updated after the file is written. */
   function updateSettings(patch) {
     return enqueue(async () => {
-      const next = normalizeSettings({ ...getSettings(), ...patch });
+      const next = normalizeSettings({ ...getSettings(), ...patch }, platform);
       await writeJsonAtomic(settingsPath, next);
       settings = next;
     });
@@ -305,7 +313,7 @@ module.exports = {
   writeJsonAtomic,
   parseWins,
   normalizeSettings,
-  DEFAULT_SETTINGS,
+  defaultSettings,
   SCHEMA_VERSION,
   BACKUPS_KEPT,
 };

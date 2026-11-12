@@ -22,6 +22,7 @@ const shortcutHint = document.getElementById('shortcut-hint');
 const shortcutWarning = document.getElementById('shortcut-warning');
 const loginEl = document.getElementById('open-at-login');
 const loginNote = document.getElementById('login-note');
+const loginApproval = document.getElementById('login-approval');
 const saveBtn = document.getElementById('save');
 const statusEl = document.getElementById('status');
 
@@ -31,67 +32,10 @@ let recording = false;
 let saving = false;
 
 // ----- Shortcut recording and display -----
+// The rules live in src/lib/accelerator.js, shared with the main process.
 
-const NAMED_KEYS = {
-  Space: 'Space',
-  ArrowUp: 'Up',
-  ArrowDown: 'Down',
-  ArrowLeft: 'Left',
-  ArrowRight: 'Right',
-  Home: 'Home',
-  End: 'End',
-  PageUp: 'PageUp',
-  PageDown: 'PageDown',
-  Insert: 'Insert',
-  Delete: 'Delete',
-  Minus: '-',
-  Equal: '=',
-  BracketLeft: '[',
-  BracketRight: ']',
-  Backslash: '\\',
-  Semicolon: ';',
-  Quote: "'",
-  Comma: ',',
-  Period: '.',
-  Slash: '/',
-  Backquote: '`',
-};
-
-// event.code names the physical key, so Shift+1 is recorded as "Shift+1", not "!".
-function keyFromCode(code) {
-  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
-  if (/^Digit\d$/.test(code)) return code.slice(5);
-  if (/^F([1-9]|1\d|2[0-4])$/.test(code)) return code;
-  return NAMED_KEYS[code] ?? null;
-}
-
-/** Electron accelerator for a key press, or null if it is not usable as a shortcut. */
-function acceleratorFromEvent(event) {
-  const key = keyFromCode(event.code);
-  if (!key) return null;
-  if (!isMac && event.metaKey) return null; // Windows-key shortcuts belong to Windows
-  const parts = [];
-  if (isMac ? event.metaKey : event.ctrlKey) parts.push('CommandOrControl');
-  if (isMac && event.ctrlKey) parts.push('Control');
-  if (event.altKey) parts.push('Alt');
-  if (event.shiftKey) parts.push('Shift');
-  if (!parts.some((p) => p !== 'Shift')) return null; // Shift alone would block typing
-  return [...parts, key].join('+');
-}
-
-const MAC_SYMBOLS = { Control: '⌃', Alt: '⌥', Shift: '⇧', CommandOrControl: '⌘' };
-const MAC_ORDER = ['Control', 'Alt', 'Shift', 'CommandOrControl'];
-const WIN_NAMES = { CommandOrControl: 'Ctrl', Control: 'Ctrl' };
-
-function formatAccelerator(accelerator) {
-  const parts = accelerator.split('+');
-  const key = parts.pop();
-  if (isMac) {
-    parts.sort((a, b) => MAC_ORDER.indexOf(a) - MAC_ORDER.indexOf(b));
-    return parts.map((p) => MAC_SYMBOLS[p] ?? p).join('') + key;
-  }
-  return [...parts.map((p) => WIN_NAMES[p] ?? p), key].join('+');
-}
+const { acceleratorFromKeyEvent, formatAccelerator: format } = window.winlogAccelerator;
+const formatAccelerator = (accelerator) => format(accelerator, window.winlog.platform);
 
 function startRecording() {
   recording = true;
@@ -120,7 +64,7 @@ shortcutBtn.addEventListener('keydown', (event) => {
     stopRecording();
     return;
   }
-  const accelerator = acceleratorFromEvent(event);
+  const accelerator = acceleratorFromKeyEvent(event, window.winlog.platform);
   if (accelerator) {
     shortcut = accelerator;
     stopRecording();
@@ -184,6 +128,7 @@ function render(view) {
     : `${formatAccelerator(view.shortcut)} could not be set up. Another app may be using it. Choose a different shortcut.`;
   loginEl.checked = view.openAtLogin;
   loginNote.hidden = view.openAtLoginApplies;
+  loginApproval.hidden = !view.openAtLoginNeedsApproval;
   update();
 }
 
@@ -220,7 +165,12 @@ async function save() {
     const result = await window.winlog.updateSettings(patch);
     if (result.ok) {
       render(result.settings);
-      setStatus('Saved.');
+      const view = result.settings;
+      if ('openAtLogin' in patch && view.openAtLoginApplies && view.openAtLogin !== patch.openAtLogin) {
+        setStatus('Saved, but start at login could not be changed. Check your system settings.', true);
+      } else {
+        setStatus('Saved.');
+      }
     } else {
       setStatus(
         `${formatAccelerator(patch.shortcut)} is not available. Another app may be using it. ` +

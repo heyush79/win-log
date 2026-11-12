@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { createStore, BACKUPS_KEPT, DEFAULT_SETTINGS } = require('../src/main/store');
+const { createStore, BACKUPS_KEPT, defaultSettings } = require('../src/main/store');
 
 async function tempDir(t) {
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'winlog-test-'));
@@ -174,13 +174,14 @@ test('a failed save leaves the saved data and memory unchanged', async (t) => {
 
 test('settings: defaults when there is no settings.json, and no file is created', async (t) => {
   const dir = await tempDir(t);
-  const store = createStore(dir);
+  const store = createStore(dir, { platform: 'darwin' });
   await store.loadSettings();
   assert.deepEqual(store.getSettings(), {
     reminderTime: '18:00',
     reminderDays: [1, 2, 3, 4, 5],
-    shortcut: 'CommandOrControl+Shift+W',
+    shortcut: 'Control+Alt+W',
     openAtLogin: true,
+    loginItemSetUp: false,
     lastPromptedDate: null,
   });
   assert.equal(fs.existsSync(path.join(dir, 'settings.json')), false);
@@ -199,7 +200,7 @@ test('settings: changes are saved and load again in a new session', async (t) =>
   assert.equal(s.reminderTime, '17:30');
   assert.deepEqual(s.reminderDays, [1, 5]);
   assert.equal(s.lastPromptedDate, '2026-11-12');
-  assert.equal(s.shortcut, DEFAULT_SETTINGS.shortcut);
+  assert.equal(s.shortcut, defaultSettings().shortcut);
   assert.equal(fs.existsSync(path.join(dir, 'settings.json.tmp')), false);
 });
 
@@ -259,4 +260,38 @@ test('settings and wins saves share one queue and do not touch each other', asyn
   ]);
   assert.deepEqual((await readJson(path.join(dir, 'wins.json'))).entries.map((e) => e.text), ['a', 'b']);
   assert.equal((await readJson(path.join(dir, 'settings.json'))).lastPromptedDate, '2026-11-12');
+});
+
+test('settings: the old default shortcut moves to the new default, a custom one is kept', async (t) => {
+  const dir = await tempDir(t);
+  const file = path.join(dir, 'settings.json');
+  await fsp.writeFile(file, JSON.stringify({ shortcut: 'CommandOrControl+Shift+W' }));
+  const mac = createStore(dir, { platform: 'darwin' });
+  await mac.loadSettings();
+  assert.equal(mac.getSettings().shortcut, 'Control+Alt+W');
+  const win = createStore(dir, { platform: 'win32' });
+  await win.loadSettings();
+  assert.equal(win.getSettings().shortcut, 'Control+Alt+Shift+W');
+
+  await fsp.writeFile(file, JSON.stringify({ shortcut: 'Alt+Shift+K' }));
+  const custom = createStore(dir, { platform: 'darwin' });
+  await custom.loadSettings();
+  assert.equal(custom.getSettings().shortcut, 'Alt+Shift+K');
+
+  await fsp.writeFile(file, JSON.stringify({ shortcut: 'Shift+K' })); // not allowed: Shift only
+  const invalid = createStore(dir, { platform: 'darwin' });
+  await invalid.loadSettings();
+  assert.equal(invalid.getSettings().shortcut, 'Control+Alt+W');
+});
+
+test('settings: loginItemSetUp is only true when saved as true', async (t) => {
+  const dir = await tempDir(t);
+  await fsp.writeFile(path.join(dir, 'settings.json'), JSON.stringify({ loginItemSetUp: 'yes' }));
+  const store = createStore(dir);
+  await store.loadSettings();
+  assert.equal(store.getSettings().loginItemSetUp, false);
+  await store.updateSettings({ loginItemSetUp: true });
+  const again = createStore(dir);
+  await again.loadSettings();
+  assert.equal(again.getSettings().loginItemSetUp, true);
 });

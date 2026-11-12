@@ -4,30 +4,14 @@
 // owns the keys; that state is kept so the Settings window can show it.
 
 const { globalShortcut } = require('electron');
-
-// What the Settings window can record. A key needs a modifier other than Shift alone,
-// otherwise the shortcut would swallow ordinary typing in every app.
-const MODIFIERS = new Set(['CommandOrControl', 'Control', 'Alt', 'Shift']);
-const KEY_RE =
-  /^([A-Z0-9]|F([1-9]|1\d|2[0-4])|Space|Up|Down|Left|Right|Home|End|PageUp|PageDown|Insert|Delete|[-=[\]\\;',./`])$/;
+const { isValidAccelerator } = require('../lib/accelerator');
 
 let current = null; // accelerator in use (it may have failed to register)
 let active = false; // whether `current` is registered right now
 let onPress = () => {};
 
-function isValidAccelerator(value) {
-  if (typeof value !== 'string' || value.length > 60) return false;
-  const parts = value.split('+');
-  const key = parts.pop();
-  return (
-    KEY_RE.test(key) &&
-    parts.every((p) => MODIFIERS.has(p)) &&
-    new Set(parts).size === parts.length &&
-    parts.some((p) => p !== 'Shift')
-  );
-}
-
 function tryRegister(accelerator) {
+  if (!isValidAccelerator(accelerator)) return false;
   try {
     return globalShortcut.register(accelerator, () => onPress());
   } catch (err) {
@@ -62,6 +46,11 @@ function isShortcutActive() {
   return active;
 }
 
+/** The shortcut in use, or null before initShortcut(). */
+function currentShortcut() {
+  return current;
+}
+
 function unregisterShortcuts() {
   globalShortcut.unregisterAll();
   active = false;
@@ -71,6 +60,6 @@ module.exports = {
   initShortcut,
   changeShortcut,
   isShortcutActive,
-  isValidAccelerator,
+  currentShortcut,
   unregisterShortcuts,
 };

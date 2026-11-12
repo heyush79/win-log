@@ -22,7 +22,9 @@ function startReminder({ store, showReminder }) {
   function check() {
     const now = new Date();
     const today = localDate(now);
-    if (shownOn === today || !shouldPrompt(now, store.getSettings())) return;
+    if (shownOn === today) return;
+    const winsToday = store.getEntries().filter((entry) => entry.date === today).length;
+    if (!shouldPrompt(now, store.getSettings(), winsToday)) return;
     shownOn = today;
     store
       .updateSettings({ lastPromptedDate: today })

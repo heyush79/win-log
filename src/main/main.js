@@ -7,6 +7,7 @@ const { showEntryWindow, showSettingsWindow } = require('./windows');
 const { registerIpc } = require('./ipc');
 const { startReminder } = require('./reminder');
 const { initShortcut, unregisterShortcuts } = require('./shortcut');
+const { setUpLoginItemOnFirstRun, syncLoginItemSetting } = require('./loginItem');
 
 // One running copy only, so two processes never write the same file.
 if (!app.requestSingleInstanceLock()) {
@@ -59,16 +60,21 @@ function start() {
       return;
     }
 
+    try {
+      await setUpLoginItemOnFirstRun(store);
+      await syncLoginItemSetting(store);
+    } catch (err) {
+      console.error('Could not set up start at login:', err); // not worth stopping the app
+    }
+
     const settings = store.getSettings();
-    applyOpenAtLogin(settings.openAtLogin);
     initShortcut(settings.shortcut, () => showEntryWindow()); // takes focus
 
     // The reminder never takes focus, so it cannot catch keys meant for another app.
     const reminder = startReminder({ store, showReminder: () => showEntryWindow({ focus: false }) });
 
     registerIpc(store, {
-      onSettingsSaved(changes) {
-        if ('openAtLogin' in changes) applyOpenAtLogin(changes.openAtLogin);
+      onSettingsSaved() {
         reminder.check(); // e.g. a reminder time that is already past today shows now
       },
     });
@@ -80,17 +86,6 @@ function start() {
 
     if (recovered) await showRecoveryNotice(recovered);
   });
-}
-
-// Applied on every start so the OS setting follows settings.json. Skipped in
-// development: there it would register the bare Electron binary as a login item.
-function applyOpenAtLogin(enabled) {
-  if (!app.isPackaged) return;
-  try {
-    app.setLoginItemSettings({ openAtLogin: enabled });
-  } catch (err) {
-    console.error('Could not change the login item:', err);
-  }
 }
 
 // macOS needs an Edit menu for Cmd+C / Cmd+V / Cmd+Z to work in text fields.

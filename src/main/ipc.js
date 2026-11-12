@@ -3,12 +3,14 @@
 const crypto = require('node:crypto');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { app, ipcMain } = require('electron');
+const { ipcMain } = require('electron');
 const { localDate } = require('../lib/dates');
 const { extractTag } = require('../lib/tags');
 const { isValidTime, isValidDays } = require('../lib/schedule');
 const { RENDERER_DIR } = require('./windows');
-const { changeShortcut, isShortcutActive, isValidAccelerator } = require('./shortcut');
+const { isValidAccelerator } = require('../lib/accelerator');
+const { changeShortcut, isShortcutActive } = require('./shortcut');
+const { loginItemApplies, readLoginItem, writeLoginItem } = require('./loginItem');
 
 const RENDERER_URL = pathToFileURL(RENDERER_DIR + path.sep).href;
 const MAX_TEXT_LENGTH = 20000;
@@ -64,14 +66,17 @@ function parseSettingsPatch(patch) {
 
 function settingsView(store) {
   const s = store.getSettings();
+  // The OS login item is the truth: the user may have removed it in System Settings.
+  const loginItem = readLoginItem();
   return {
     reminderTime: s.reminderTime,
     reminderDays: s.reminderDays,
     shortcut: s.shortcut,
     shortcutActive: isShortcutActive(),
-    openAtLogin: s.openAtLogin,
-    // Login items only work for the installed app (see main.js).
-    openAtLoginApplies: app.isPackaged,
+    openAtLogin: loginItem ? loginItem.openAtLogin : s.openAtLogin,
+    openAtLoginNeedsApproval: loginItem ? loginItem.needsApproval : false,
+    // Login items only work for the installed app (see loginItem.js).
+    openAtLoginApplies: loginItemApplies(),
   };
 }
 
@@ -100,6 +105,8 @@ function registerIpc(store, { onSettingsSaved }) {
       if (newShortcut) changeShortcut(before.shortcut); // match what is still on disk
       throw err;
     }
+    // Only a change made here touches the OS login item (see loginItem.js).
+    if ('openAtLogin' in changes) writeLoginItem(changes.openAtLogin);
     onSettingsSaved(changes);
     return { ok: true, settings: settingsView(store) };
   });

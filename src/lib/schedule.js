@@ -26,14 +26,16 @@ function isValidDays(days) {
 
 /**
  * Whether to show the reminder now:
- * enabled day AND now >= reminderTime AND lastPromptedDate != today.
+ * enabled day AND now >= reminderTime AND lastPromptedDate != today AND no win dated today.
  * Only today is ever considered, so a day that was missed completely is never asked about later.
+ * winsToday is the number of wins dated today; if you already added one, there is nothing to ask.
  */
-function shouldPrompt(now, { reminderTime, reminderDays, lastPromptedDate }) {
+function shouldPrompt(now, { reminderTime, reminderDays, lastPromptedDate }, winsToday = 0) {
   if (!isValidTime(reminderTime) || !Array.isArray(reminderDays)) return false;
   if (!reminderDays.includes(now.getDay())) return false;
   const [hours, minutes] = reminderTime.split(':').map(Number);
   if (now.getHours() * 60 + now.getMinutes() < hours * 60 + minutes) return false;
+  if (winsToday > 0) return false;
   return lastPromptedDate !== localDate(now);
 }
 
