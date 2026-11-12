@@ -146,3 +146,24 @@ test('joinLines turns every kind of line break into one space', () => {
   assert.equal(joinLines('no breaks'), 'no breaks');
   assert.equal(joinLines('twice'), 'twice', 'safe to call again and again');
 });
+
+test('invalid text says why, so the window can explain it in plain words', () => {
+  const reason = (fn) => {
+    try {
+      fn();
+    } catch (err) {
+      return `${err.code}/${err.reason}`;
+    }
+    return 'no error';
+  };
+  assert.equal(reason(() => parseWinLines('')), 'INVALID_TEXT/empty');
+  assert.equal(reason(() => parseWinLines(' \n ')), 'INVALID_TEXT/empty');
+  assert.equal(reason(() => parseWinLines(42)), 'INVALID_TEXT/not-text');
+  assert.equal(reason(() => parseWinLines('x'.repeat(MAX_TEXT_LENGTH + 1))), 'INVALID_TEXT/text-too-long');
+  assert.equal(reason(() => parseWinLines('x'.repeat(MAX_LINE_LENGTH + 1))), 'INVALID_TEXT/line-too-long');
+  assert.equal(reason(() => parseWinLines(Array(MAX_LINES + 1).fill('a').join('\n'))), 'INVALID_TEXT/too-many');
+  assert.equal(reason(() => cleanWinText('  ')), 'INVALID_TEXT/empty');
+  assert.equal(reason(() => cleanWinText('a\nb')), 'INVALID_TEXT/line-break');
+  assert.equal(reason(() => cleanWinText('x'.repeat(MAX_LINE_LENGTH + 1))), 'INVALID_TEXT/line-too-long');
+  assert.equal(reason(() => cleanWinText(null)), 'INVALID_TEXT/not-text');
+});

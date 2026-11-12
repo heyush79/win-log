@@ -18,6 +18,7 @@ const { sortNewestFirst } = require('../lib/group');
 const { parseExportOptions, buildExport, exportFileName } = require('../lib/exportMarkdown');
 const { parseBackup, planImport, importSummary } = require('../lib/backup');
 const { linkUrl, isAllowedUrl } = require('../lib/links');
+const { isInside } = require('../lib/paths');
 const { writeFileAtomic } = require('./store');
 const { RENDERER_DIR, WINDOW_NAMES, showWindow } = require('./windows');
 const { changeShortcut, isShortcutActive } = require('./shortcut');
@@ -90,10 +91,25 @@ function shorten(text) {
   return text.length > PREVIEW_LENGTH ? `${text.slice(0, PREVIEW_LENGTH)}…` : text;
 }
 
-/** True if `target` is `folder` itself or somewhere inside it. */
-function isInside(folder, target) {
-  const relative = path.relative(path.resolve(folder), path.resolve(target));
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+/** Where a path really is on disk, with symlinks followed. Its last part may not exist yet. */
+async function realLocation(target) {
+  try {
+    return await fsp.realpath(target);
+  } catch {
+    try {
+      return path.join(await fsp.realpath(path.dirname(target)), path.basename(target));
+    } catch {
+      return path.resolve(target);
+    }
+  }
+}
+
+/**
+ * True if `target` is Win Log's data folder or anything inside it. Exports and backups
+ * are never written there: a file saved as "wins.json" would replace the live data.
+ */
+async function isInDataFolder(store, target) {
+  return isInside(await realLocation(store.paths.dir), await realLocation(target));
 }
 
 /** Shows a dialog attached to the window that asked for it. */
@@ -171,11 +187,20 @@ function registerIpc(store, { onSettingsSaved, onWinsChanged }) {
 
   handle('wins:list', () => sortNewestFirst(usableEntries(store)));
 
+  // Resolves to { ok: true, added, today }, or to { ok: false, error } when the text cannot
+  // be saved as it is: 'empty', 'too-many', 'line-too-long' or 'text-too-long'.
   handle('wins:add', async (_event, text) => {
-    const entries = createEntries(parseWinLines(text), new Date(), () => crypto.randomUUID());
+    let lines;
+    try {
+      lines = parseWinLines(text);
+    } catch (err) {
+      if (err.code === 'INVALID_TEXT' && err.reason !== 'not-text') return { ok: false, error: err.reason };
+      throw err;
+    }
+    const entries = createEntries(lines, new Date(), () => crypto.randomUUID());
     await store.addEntries(entries);
     winsChanged();
-    return { added: entries.length, today: todaysEntries(store) };
+    return { ok: true, added: entries.length, today: todaysEntries(store) };
   });
 
   // Resolves to { ok: true, entry } or { ok: false, error: 'not-found' | 'invalid-text' }.
@@ -260,7 +285,7 @@ function registerIpc(store, { onSettingsSaved, onWinsChanged }) {
       filters: [markdown ? { name: 'Markdown', extensions: ['md'] } : { name: 'Plain text', extensions: ['txt'] }],
     });
     if (canceled || !filePath) return { ok: false, canceled: true };
-    if (isInside(store.paths.dir, filePath)) return { ok: false, error: 'data-folder' };
+    if (await isInDataFolder(store, filePath)) return { ok: false, error: 'data-folder' };
     await writeFileAtomic(filePath, `${result.text}\n`, `${filePath}.winlog-tmp`);
     return { ok: true, count: result.count, fileName: path.basename(filePath) };
   });
@@ -281,7 +306,7 @@ function registerIpc(store, { onSettingsSaved, onWinsChanged }) {
     });
     if (canceled || !filePath) return { ok: false, canceled: true };
     // Never write over the live files: Win Log's own folder is off limits.
-    if (isInside(store.paths.dir, filePath)) return { ok: false, error: 'data-folder' };
+    if (await isInDataFolder(store, filePath)) return { ok: false, error: 'data-folder' };
     await writeFileAtomic(filePath, store.backupText(), `${filePath}.winlog-tmp`);
     return { ok: true, fileName: path.basename(filePath), count: store.getEntries().length };
   });
@@ -338,7 +363,7 @@ function registerIpc(store, { onSettingsSaved, onWinsChanged }) {
     });
     if (canceled || filePaths.length === 0) return { ok: false, canceled: true };
     const folder = filePaths[0];
-    if (isInside(store.paths.dir, folder)) return { ok: false, error: 'data-folder' };
+    if (await isInDataFolder(store, folder)) return { ok: false, error: 'data-folder' };
     try {
       await store.setBackupFolder(folder);
     } catch (err) {

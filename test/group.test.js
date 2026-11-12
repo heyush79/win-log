@@ -86,3 +86,31 @@ test('tagCounts: most used first, then A to Z, untagged wins left out', () => {
   ]);
   assert.deepEqual(tagCounts([]), []);
 });
+
+const { compareNewestFirst } = require('../src/lib/group');
+const { FORMATS } = require('../src/lib/exportMarkdown');
+const { REPO_OWNER, REPO_NAME, REPO_URL } = require('../src/lib/links');
+
+test('compareNewestFirst: later date first, then later creation, then id; equal wins compare as 0', () => {
+  const a = { id: 'a', date: '2026-11-12', createdAt: '2026-11-12T10:00:00.000Z' };
+  const b = { id: 'b', date: '2026-11-11', createdAt: '2026-11-12T23:00:00.000Z' };
+  const c = { id: 'c', date: '2026-11-12', createdAt: '2026-11-12T11:00:00.000Z' };
+  const d = { id: 'd', date: '2026-11-12', createdAt: '2026-11-12T11:00:00.000Z' };
+  assert.ok(compareNewestFirst(a, b) < 0, 'the later date comes first, whatever the creation time');
+  assert.ok(compareNewestFirst(b, a) > 0);
+  assert.ok(compareNewestFirst(c, a) < 0, 'same date: the one added later comes first');
+  assert.ok(compareNewestFirst(d, c) < 0 && compareNewestFirst(c, d) > 0, 'same date and time: a fixed order by id');
+  assert.equal(compareNewestFirst(a, a), 0);
+  // The order never depends on the order the wins came in.
+  const sorted = (list) => [...list].sort(compareNewestFirst).map((e) => e.id).join('');
+  assert.equal(sorted([a, b, c, d]), 'dcab');
+  assert.equal(sorted([d, c, b, a]), 'dcab');
+  assert.equal(sorted([b, a, d, c]), 'dcab');
+});
+
+test('the constants other files rely on', () => {
+  assert.deepEqual(FORMATS, ['markdown', 'text']);
+  assert.equal(REPO_URL, `https://github.com/${REPO_OWNER}/${REPO_NAME}`);
+  assert.match(REPO_OWNER, /^[A-Za-z0-9-]+$/);
+  assert.match(REPO_NAME, /^[A-Za-z0-9._-]+$/);
+});

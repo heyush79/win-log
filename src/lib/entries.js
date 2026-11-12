@@ -12,10 +12,15 @@ const MAX_LINES = 100;
 const MAX_LINE_LENGTH = 2000; // one win
 const MAX_ID_LENGTH = 100;
 
-/** An error the app can explain to the user. `code` is one of INVALID_TEXT or NOT_FOUND. */
-function entryError(code, message) {
+/**
+ * An error the app can explain to the user. `code` is INVALID_TEXT or NOT_FOUND.
+ * For INVALID_TEXT, `reason` says what is wrong: 'not-text', 'empty', 'too-many',
+ * 'line-too-long', 'text-too-long' or 'line-break'.
+ */
+function entryError(code, message, reason) {
   const err = new Error(message);
   err.code = code;
+  if (reason) err.reason = reason;
   return err;
 }
 
@@ -48,27 +53,31 @@ function isUsableEntry(entry) {
 
 /** Validates the text from the Add a win window and returns one trimmed line per win. */
 function parseWinLines(text) {
-  if (typeof text !== 'string') throw entryError('INVALID_TEXT', 'Expected text');
-  if (text.length > MAX_TEXT_LENGTH) throw entryError('INVALID_TEXT', 'Text is too long');
+  if (typeof text !== 'string') throw entryError('INVALID_TEXT', 'Expected text', 'not-text');
+  if (text.length > MAX_TEXT_LENGTH) throw entryError('INVALID_TEXT', 'Text is too long', 'text-too-long');
   const lines = text
     .split(/\r\n|\r|\n|\u2028|\u2029/)
     .map((line) => line.trim())
     .filter(Boolean);
-  if (lines.length === 0) throw entryError('INVALID_TEXT', 'Nothing to save');
-  if (lines.length > MAX_LINES) throw entryError('INVALID_TEXT', `At most ${MAX_LINES} wins at once`);
+  if (lines.length === 0) throw entryError('INVALID_TEXT', 'Nothing to save', 'empty');
+  if (lines.length > MAX_LINES) {
+    throw entryError('INVALID_TEXT', `At most ${MAX_LINES} wins at once`, 'too-many');
+  }
   if (lines.some((line) => line.length > MAX_LINE_LENGTH)) {
-    throw entryError('INVALID_TEXT', 'A line is too long');
+    throw entryError('INVALID_TEXT', 'A line is too long', 'line-too-long');
   }
   return lines;
 }
 
 /** Validates the text of one win (used when editing). A win is a single line. */
 function cleanWinText(text) {
-  if (typeof text !== 'string') throw entryError('INVALID_TEXT', 'Expected text');
+  if (typeof text !== 'string') throw entryError('INVALID_TEXT', 'Expected text', 'not-text');
   const clean = text.trim();
-  if (clean === '') throw entryError('INVALID_TEXT', 'A win cannot be empty');
-  if (clean.length > MAX_LINE_LENGTH) throw entryError('INVALID_TEXT', 'The text is too long');
-  if (/[\r\n\u2028\u2029]/.test(clean)) throw entryError('INVALID_TEXT', 'A win is a single line');
+  if (clean === '') throw entryError('INVALID_TEXT', 'A win cannot be empty', 'empty');
+  if (clean.length > MAX_LINE_LENGTH) {
+    throw entryError('INVALID_TEXT', 'The text is too long', 'line-too-long');
+  }
+  if (/[\r\n\u2028\u2029]/.test(clean)) throw entryError('INVALID_TEXT', 'A win is a single line', 'line-break');
   return clean;
 }
 

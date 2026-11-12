@@ -187,10 +187,36 @@ async function exists(file) {
 }
 
 /**
- * @param {string} dir  folder that holds wins.json (the app's userData folder)
- * @param {{ now?: () => Date, platform?: string, hostname?: string }} [options]  all for tests
+ * The size and change time of a file: null if there is no such file, undefined if
+ * that cannot be found out. Two equal marks mean nobody wrote the file in between.
  */
-function createStore(dir, { now = () => new Date(), platform = process.platform, hostname = os.hostname() } = {}) {
+async function fileMark(file) {
+  try {
+    const stat = await fsp.stat(file);
+    return { size: stat.size, mtimeMs: stat.mtimeMs };
+  } catch (err) {
+    return err.code === 'ENOENT' ? null : undefined;
+  }
+}
+
+function sameMark(a, b) {
+  if (a === null || b === null) return a === b;
+  return a.size === b.size && a.mtimeMs === b.mtimeMs;
+}
+
+/**
+ * @param {string} dir  folder that holds wins.json (the app's userData folder)
+ * @param {object} [options]
+ * @param {(file: string) => void} [options.onForeignFile]  called with the path of the copy
+ *   that was kept when another program had changed wins.json (see keepForeignFile)
+ * @param {() => Date} [options.now]  for tests
+ * @param {string} [options.platform]  for tests
+ * @param {string} [options.hostname]  for tests
+ */
+function createStore(
+  dir,
+  { onForeignFile = () => {}, now = () => new Date(), platform = process.platform, hostname = os.hostname() } = {}
+) {
   const winsPath = path.join(dir, 'wins.json');
   const settingsPath = path.join(dir, 'settings.json');
   const backupDir = path.join(dir, 'backups');
@@ -200,6 +226,8 @@ function createStore(dir, { now = () => new Date(), platform = process.platform,
   let settings = null;
   let queue = Promise.resolve(); // never rejects
   let backedUpOn = null; // local date of the last backup this session
+  // wins.json as this app last read or wrote it (see fileMark). undefined = not known.
+  let lastSeen;
 
   // Copies to the user's backup folder run on their own chain: a slow or missing cloud
   // folder must never hold up, or fail, saving a win.
@@ -264,6 +292,30 @@ function createStore(dir, { now = () => new Date(), platform = process.platform,
       }
     }
     if (await exists(winsPath)) backedUpOn = today;
+  }
+
+  /**
+   * Another program may have replaced wins.json while Win Log was running: for example
+   * someone copying their wins over from another computer, or editing the file by hand.
+   * Win Log saves from memory, so its next save would silently write over that file.
+   * Before that happens, a file that is not as this app left it is copied to
+   * wins.conflict-<time>.json. Its wins can be added with Import backup.
+   * Resolves to the path of the copy, or null if there was nothing to keep.
+   */
+  async function keepForeignFile() {
+    if (lastSeen === undefined) return null;
+    const onDisk = await fileMark(winsPath);
+    if (onDisk === undefined || onDisk === null || sameMark(onDisk, lastSeen)) return null;
+    const stamp = localFileStamp(now());
+    for (let n = 1; ; n++) {
+      const copy = path.join(dir, `wins.conflict-${stamp}${n === 1 ? '' : `-${n}`}.json`);
+      try {
+        await fsp.copyFile(winsPath, copy, fsp.constants.COPYFILE_EXCL); // never replace an earlier copy
+        return copy;
+      } catch (err) {
+        if (err.code !== 'EEXIST' || n >= 100) throw err;
+      }
+    }
   }
 
   // ----- Extra backups in a folder the user chose -----
@@ -369,8 +421,10 @@ function createStore(dir, { now = () => new Date(), platform = process.platform,
     } catch (err) {
       if (err.code !== 'ENOENT') throw err;
       data = emptyData(); // first run
+      lastSeen = null;
       return { recovered: null };
     }
+    lastSeen = await fileMark(winsPath);
 
     const parsed = parseWins(raw);
     if (parsed) {
@@ -385,6 +439,7 @@ function createStore(dir, { now = () => new Date(), platform = process.platform,
     data = backup ? backup.data : emptyData();
     // Write the recovered data back now, so the next start does not begin empty.
     await writeJsonAtomic(winsPath, data);
+    lastSeen = await fileMark(winsPath);
     return { recovered: { corruptFile, backupFile: backup ? backup.file : null } };
   }
 
@@ -411,10 +466,13 @@ function createStore(dir, { now = () => new Date(), platform = process.platform,
       if (entries === current) return result; // nothing changed, so nothing to write
       const next = { ...data, entries };
       const text = serialize(next);
+      const foreignCopy = await keepForeignFile();
       await backupIfNeeded();
       await writeFileAtomic(winsPath, text);
+      lastSeen = await fileMark(winsPath);
       data = next;
       copyToBackupFolder(text); // not awaited: see folderQueue
+      if (foreignCopy) onForeignFile(foreignCopy);
       return result;
     });
   }

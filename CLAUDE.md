@@ -81,7 +81,8 @@ plain text.
 - `src/lib/` pure logic with no Electron imports: `dates.js`, `schedule.js`, `tags.js`,
   `entries.js` (create, edit, delete), `group.js` (order, weeks, counts), `search.js`,
   `accelerator.js`, `exportMarkdown.js` (range presets, Markdown and plain text), `backup.js`
-  (read a backup, merge by id, backup-folder file names), `links.js` (the only web addresses).
+  (read a backup, merge by id, backup-folder file names), `links.js` (the only web addresses),
+  `paths.js` (is a path inside a folder).
   Put logic here so it can be unit tested. Files that pages also need (`dates.js`, `group.js`,
   `search.js`, `accelerator.js`) use a small UMD wrapper, so they work with `require()` in main
   and a `<script>` tag in a page.
@@ -125,9 +126,13 @@ plain text.
 - Saves are atomic: write a temp file, fsync, rename. Retry rename on EPERM/EBUSY (Windows).
   Files written to a folder the user chose (exports, backups) use the same `writeFileAtomic`
   with a temp name of our own (`<file>.winlog-tmp`). Never write an export or a backup into
-  the data folder itself.
+  the data folder itself (checked on real paths, ignoring letter case on Mac and Windows).
 - If `wins.json` cannot be parsed, never overwrite it. Move it to `wins.corrupt-<timestamp>.json`,
   load the newest backup, and tell the user.
+- If `wins.json` on disk is not as the app last read or wrote it (size or change time differ),
+  another program changed it while the app was running. Before the next save, copy it to
+  `wins.conflict-<timestamp>.json` and tell the user how to import it. Never write over it
+  silently; if the copy cannot be made, the save fails.
 - `wins.json` may be edited by hand. An item that is not a usable win (`isUsableEntry`) stays in
   the file untouched, but is not listed, counted or exported, so it cannot crash a window.
 - Import never overwrites: it is planned again inside the save queue against the wins as they
@@ -166,6 +171,11 @@ plain text.
   dialog, builds the content and does the work. Links are opened by name (`'releases'`,
   `'issues'`, `'website'`), checked against `src/lib/links.js`.
 - If `globalShortcut.register` returns false, show it in Settings. Unregister on quit.
+- A failure during start-up shows an error box and exits. Never leave the app running with no
+  tray icon and no window.
+- When something cannot be done, say why in plain words and what to do next. `wins:add` returns
+  `{ ok: false, error }` with a reason (`too-many`, `line-too-long`, `text-too-long`, `empty`)
+  so the window can explain it; "try again" is only for errors where trying again can help.
 - Check Electron APIs against `node_modules/electron/electron.d.ts` before using them: in this
   version `clipboard.writeText` and `readText` return promises.
 

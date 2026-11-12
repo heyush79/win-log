@@ -24,7 +24,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 function start() {
-  const store = createStore(app.getPath('userData'));
+  const store = createStore(app.getPath('userData'), { onForeignFile: showForeignFileNotice });
 
   // Opening Win Log again while it is running shows that it is there. Windows starts a
   // second copy (which quits at once); macOS sends "activate" to the running one.
@@ -146,6 +146,15 @@ function start() {
     store.syncBackupFolder(); // catches up a missed copy; never rejects
 
     if (recovered) await showRecoveryNotice(recovered);
+  }).catch((err) => {
+    // Without this, a failure during start-up would leave an app with no icon and no
+    // window, and no way for the user to know.
+    console.error(err);
+    dialog.showErrorBox(
+      'Win Log could not start',
+      `${err && err.message ? err.message : err}\n\nYour wins were not changed. Your data folder is:\n${app.getPath('userData')}`
+    );
+    app.exit(1);
   });
 }
 
@@ -171,6 +180,23 @@ function setApplicationMenu() {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }])
   );
+}
+
+// Another program changed wins.json while Win Log was running (see keepForeignFile in store.js).
+function showForeignFileNotice(copy) {
+  app.focus({ steal: true });
+  dialog
+    .showMessageBox({
+      type: 'warning',
+      title: 'Win Log',
+      message: 'Another program changed your wins file.',
+      detail:
+        'Win Log was running at the time, so it kept the wins it already had. ' +
+        `The other version of the file was saved here:\n${copy}\n\n` +
+        'To add its wins, open Settings > Your data > Import backup… and choose that file.\n\n' +
+        'Next time, quit Win Log before you copy or edit its files.',
+    })
+    .catch((err) => console.error(err));
 }
 
 async function showRecoveryNotice({ corruptFile, backupFile }) {

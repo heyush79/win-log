@@ -175,7 +175,10 @@ In "Settings…" > "Your data":
   newest 14 copies from this computer and never touches any other file in that folder. Your live
   data always stays in the normal data folder.
 
-You can also back up by copying `wins.json` yourself.
+You can also back up by copying `wins.json` yourself. Quit Win Log before you copy a file into
+its data folder or edit one there. If another program changes `wins.json` while Win Log is
+running, Win Log keeps that version as `wins.conflict-<time>.json` in the data folder and tells
+you, so you can add its wins with "Import backup…".
 
 **Move to a new computer:** on the old computer, use "Export backup…". Install Win Log on the new
 computer, then use "Import backup…". Or quit Win Log on both computers and copy `wins.json` into

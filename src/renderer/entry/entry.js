@@ -9,6 +9,14 @@ const todayList = document.getElementById('today');
 
 let saving = false;
 
+// Why the text could not be saved, in plain words. The limits are in src/lib/entries.js.
+const TOO_MUCH = {
+  'too-many': 'That is more than 100 wins at once. Save the first ones, then the rest.',
+  'line-too-long': 'One line is too long. Keep each win under 2,000 characters.',
+  'text-too-long': 'That is too much text to save at once. Save part of it first.',
+  empty: 'Type a win first.',
+};
+
 saveHint.textContent = window.winlog.platform === 'darwin' ? '⌘ Enter' : 'Ctrl+Enter';
 
 function setStatus(message, isError = false) {
@@ -39,9 +47,14 @@ async function save() {
   setStatus('Saving…');
   try {
     const result = await window.winlog.addWins(textEl.value);
-    textEl.value = '';
-    setStatus(result.added === 1 ? 'Saved 1 win.' : `Saved ${result.added} wins.`);
-    renderToday(result.today);
+    if (result.ok) {
+      textEl.value = '';
+      setStatus(result.added === 1 ? 'Saved 1 win.' : `Saved ${result.added} wins.`);
+      renderToday(result.today);
+    } else {
+      // Nothing was saved, and trying again as it is would not help. Say what to change.
+      setStatus(TOO_MUCH[result.error] || 'Could not save. Your text is still here, so try again.', true);
+    }
   } catch (err) {
     console.error(err);
     setStatus('Could not save. Your text is still here, so try again.', true);

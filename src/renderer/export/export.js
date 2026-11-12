@@ -121,7 +121,9 @@ saveBtn.addEventListener('click', async () => {
   try {
     const result = await window.winlog.saveExport(options());
     if (result.ok) await refresh(`Saved as ${result.fileName}.`);
-    else if (!result.canceled) await refresh();
+    else if (result.error === 'data-folder') {
+      setStatus('Choose a different folder. That one is where Win Log keeps its own files.', true);
+    } else if (!result.canceled) await refresh();
   } catch (err) {
     console.error(err);
     setStatus('Could not save the file. Try another folder.', true);

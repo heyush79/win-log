@@ -667,3 +667,111 @@ test('hasUnfinishedWrites is true only while a save or a folder copy is being wr
   await assert.rejects(store.addEntries([fullEntry('c', 'Fails')]));
   assert.equal(store.hasUnfinishedWrites(), false);
 });
+
+// ----- Another program changed wins.json while the app was running -----
+
+const { parseBackup, planImport } = require('../src/lib/backup');
+const conflictFiles = (dir) => fs.readdirSync(dir).filter((name) => name.startsWith('wins.conflict-')).sort();
+
+test('a wins.json replaced by another program is kept as a copy before the next save', async (t) => {
+  const dir = await tempDir(t);
+  const reported = [];
+  const store = createStore(dir, { now: fixedNow('2026-11-12T10:00:00'), onForeignFile: (file) => reported.push(file) });
+  await store.load();
+  await store.addEntries([fullEntry('mine', 'Added on this computer')]);
+
+  // Someone copies their wins from another computer into the data folder while the app runs.
+  const foreign = JSON.stringify({ schemaVersion: 1, entries: [fullEntry('old-1', 'From the old laptop'), fullEntry('old-2', 'Also from the old laptop')] });
+  await fsp.writeFile(path.join(dir, 'wins.json'), foreign);
+
+  await store.addEntries([fullEntry('mine-2', 'Added after the copy')]);
+
+  assert.deepEqual(conflictFiles(dir), ['wins.conflict-2026-11-12T10-00-00.json']);
+  const copy = path.join(dir, 'wins.conflict-2026-11-12T10-00-00.json');
+  assert.equal(await fsp.readFile(copy, 'utf8'), foreign, 'the other version is kept byte for byte');
+  assert.deepEqual(reported, [copy], 'and the app is told, so it can tell the user');
+  assert.deepEqual((await readJson(path.join(dir, 'wins.json'))).entries.map((e) => e.id), ['mine', 'mine-2'], 'the app saved what it had');
+
+  // The kept copy can be brought in with Import backup: nothing is lost.
+  const { entries } = parseBackup(await fsp.readFile(copy, 'utf8'), new Date());
+  const plan = await store.importEntries(entries);
+  assert.deepEqual(plan.toAdd.map((e) => e.id), ['old-1', 'old-2']);
+  assert.deepEqual(conflictFiles(dir).length, 1, 'the import itself is not seen as a foreign change');
+});
+
+test('ordinary saves never create a conflict copy', async (t) => {
+  const dir = await tempDir(t);
+  const reported = [];
+  const store = createStore(dir, { onForeignFile: (file) => reported.push(file) });
+  await store.load();
+  await store.loadSettings();
+  await store.addEntries([fullEntry('a', 'First')]);
+  await store.editEntry('a', 'First, edited');
+  await store.addEntries([fullEntry('b', 'Second')]);
+  await store.deleteEntry('b');
+  await store.updateSettings({ reminderTime: '17:00' });
+  await store.importEntries([fullEntry('c', 'Imported')]);
+
+  const again = createStore(dir, { onForeignFile: (file) => reported.push(file) });
+  await again.load();
+  await again.addEntries([fullEntry('d', 'After a restart')]);
+
+  assert.deepEqual(conflictFiles(dir), []);
+  assert.deepEqual(reported, []);
+});
+
+test('a wins.json that appears on a first run (no file yet) is kept too', async (t) => {
+  const dir = await tempDir(t);
+  const reported = [];
+  const store = createStore(dir, { now: fixedNow('2026-11-12T10:00:00'), onForeignFile: (file) => reported.push(file) });
+  await store.load(); // nothing on disk yet
+  const foreign = JSON.stringify({ schemaVersion: 1, entries: [fullEntry('old-1', 'Copied in')] });
+  await fsp.writeFile(path.join(dir, 'wins.json'), foreign);
+
+  await store.addEntries([fullEntry('first', 'My first win here')]);
+  assert.equal(await fsp.readFile(path.join(dir, 'wins.conflict-2026-11-12T10-00-00.json'), 'utf8'), foreign);
+  assert.equal(reported.length, 1);
+});
+
+test('a wins.json deleted by another program is simply written again', async (t) => {
+  const dir = await tempDir(t);
+  const reported = [];
+  const store = createStore(dir, { onForeignFile: (file) => reported.push(file) });
+  await store.load();
+  await store.addEntries([fullEntry('a', 'First')]);
+  await fsp.rm(path.join(dir, 'wins.json'));
+  await store.addEntries([fullEntry('b', 'Second')]);
+  assert.deepEqual((await readJson(path.join(dir, 'wins.json'))).entries.map((e) => e.id), ['a', 'b']);
+  assert.deepEqual(conflictFiles(dir), []);
+  assert.deepEqual(reported, []);
+});
+
+test('two foreign changes in the same second get two copies; an earlier copy is never replaced', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir, { now: fixedNow('2026-11-12T10:00:00') });
+  await store.load();
+  await store.addEntries([fullEntry('a', 'First')]);
+  await fsp.writeFile(path.join(dir, 'wins.json'), '{"schemaVersion":1,"entries":[],"note":"foreign one"}');
+  await store.deleteEntry('a');
+  await fsp.writeFile(path.join(dir, 'wins.json'), '{"schemaVersion":1,"entries":[],"note":"foreign number two"}');
+  await store.addEntries([fullEntry('b', 'Second')]);
+  assert.deepEqual(conflictFiles(dir), ['wins.conflict-2026-11-12T10-00-00-2.json', 'wins.conflict-2026-11-12T10-00-00.json']);
+  assert.match(await fsp.readFile(path.join(dir, 'wins.conflict-2026-11-12T10-00-00.json'), 'utf8'), /foreign one/);
+  assert.match(await fsp.readFile(path.join(dir, 'wins.conflict-2026-11-12T10-00-00-2.json'), 'utf8'), /foreign number two/);
+});
+
+test('if the copy of a foreign file cannot be made, the save fails and nothing is overwritten', async (t) => {
+  const dir = await tempDir(t);
+  const store = createStore(dir, { now: fixedNow('2026-11-12T10:00:00') });
+  await store.load();
+  await store.addEntries([fullEntry('a', 'First')]);
+  const foreign = '{"schemaVersion":1,"entries":[],"note":"must not be lost"}';
+  await fsp.writeFile(path.join(dir, 'wins.json'), foreign);
+  // Block every possible name for the copy with a folder of that name... the first one is enough
+  // to prove the rule when copying fails for another reason: make the source unreadable instead.
+  await fsp.rm(path.join(dir, 'wins.json'));
+  await fsp.mkdir(path.join(dir, 'wins.json')); // a folder where the file should be: copying it fails
+  await assert.rejects(store.addEntries([fullEntry('b', 'Second')]));
+  assert.deepEqual(store.getEntries().map((e) => e.id), ['a'], 'memory is unchanged');
+  assert.equal(fs.statSync(path.join(dir, 'wins.json')).isDirectory(), true, 'what was on disk is untouched');
+});

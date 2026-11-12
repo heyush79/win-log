@@ -25,6 +25,8 @@ Win Log saves these files in its data folder:
   keeps the newest 14.
 - If `wins.json` is ever damaged and cannot be read, Win Log does not delete it. It renames it
   to `wins.corrupt-<time>.json` and keeps it in the same folder.
+- If another program changes `wins.json` while Win Log is running, Win Log keeps that version
+  as `wins.conflict-<time>.json` in the same folder.
 
 Electron, the framework Win Log is built on, may also keep some files of its own in this folder,
 such as caches.

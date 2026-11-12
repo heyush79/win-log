@@ -67,3 +67,17 @@ test('formatAccelerator orders modifiers the platform way', () => {
   assert.equal(formatAccelerator('CommandOrControl+Control+K', 'win32'), 'Ctrl+K');
   assert.equal(formatAccelerator('', 'darwin'), '');
 });
+
+const { keyFromCode } = require('../src/lib/accelerator');
+
+test('keyFromCode names the physical key, or null for keys that cannot be a shortcut', () => {
+  assert.equal(keyFromCode('KeyW'), 'W');
+  assert.equal(keyFromCode('Digit7'), '7');
+  assert.equal(keyFromCode('F12'), 'F12');
+  assert.equal(keyFromCode('ArrowLeft'), 'Left');
+  assert.equal(keyFromCode('Slash'), '/');
+  assert.equal(keyFromCode('Backquote'), '`');
+  for (const bad of ['F25', 'F0', 'Numpad5', 'Enter', 'Tab', 'Escape', 'ControlLeft', 'MetaLeft', 'constructor', '', null, undefined, 5]) {
+    assert.equal(keyFromCode(bad), null, String(bad));
+  }
+});
