@@ -1,0 +1,243 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1d1d1f;
+  --muted: #6e6e73;
+  --border: #d2d2d7;
+  --field: #ffffff;
+  --accent: #a85f00;
+  --accent-fg: #ffffff;
+  --error: #c62828;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e1e;
+    --fg: #f5f5f7;
+    --muted: #a1a1a6;
+    --border: #3a3a3c;
+    --field: #2a2a2c;
+    --accent: #f0a020;
+    --accent-fg: #1e1e1e;
+    --error: #ef6b6b;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+main {
+  height: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+h2 {
+  margin: 6px 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 8px 10px;
+  resize: vertical;
+  font: inherit;
+  color: inherit;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status.error {
+  color: var(--error);
+}
+
+kbd {
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+button {
+  padding: 6px 18px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.today {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.today[hidden] {
+  display: none;
+}
+
+ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+li {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+/* Settings window */
+
+.settings {
+  height: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings h2 {
+  margin: 0;
+}
+
+.check,
+.days label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+input[type='checkbox'] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.indent {
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.indent.off {
+  opacity: 0.5;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.row-label {
+  width: 22px;
+  padding: 0;
+  float: left; /* lets a <legend> sit inside the flex row */
+  color: var(--muted);
+}
+
+fieldset.days {
+  margin: 0;
+  padding: 0;
+  border: none;
+  flex-wrap: wrap;
+}
+
+input[type='time'] {
+  padding: 4px 8px;
+  font: inherit;
+  color: inherit;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+input[type='time']:focus,
+.shortcut:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+button.shortcut {
+  min-width: 120px;
+  color: var(--fg);
+  background: var(--field);
+  border: 1px solid var(--border);
+}
+
+button.shortcut.recording {
+  color: var(--muted);
+  font-weight: normal;
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.footer {
+  margin-top: auto;
+}

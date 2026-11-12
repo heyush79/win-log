@@ -1,0 +1,15 @@
+{
+  "name": "win-log",
+  "productName": "Win Log",
+  "version": "0.1.0",
+  "description": "Asks what you did today, so you remember your wins at review time.",
+  "private": true,
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "electron": "^45.3.1"
+  }
+}

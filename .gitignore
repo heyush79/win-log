@@ -1,0 +1,13 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+
+# Signing files and secrets: never commit these
+*.p12
+*.pfx
+*.cer
+*.p8
+.env
+.env.*

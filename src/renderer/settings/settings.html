@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'" />
+    <title>Win Log Settings</title>
+    <link rel="stylesheet" href="../common.css" />
+    <script src="settings.js" defer></script>
+  </head>
+  <body>
+    <form id="form" class="settings" novalidate>
+      <h1>Settings</h1>
+
+      <section aria-labelledby="reminder-heading">
+        <h2 id="reminder-heading">Daily reminder</h2>
+        <label class="check">
+          <input type="checkbox" id="reminder-on" />
+          Ask “What did you do today?”
+        </label>
+        <div id="reminder-details" class="indent">
+          <label class="row">
+            <span class="row-label">At</span>
+            <input type="time" id="reminder-time" required />
+          </label>
+          <fieldset class="row days">
+            <legend class="row-label">On</legend>
+            <label><input type="checkbox" name="day" value="1" />Mon</label>
+            <label><input type="checkbox" name="day" value="2" />Tue</label>
+            <label><input type="checkbox" name="day" value="3" />Wed</label>
+            <label><input type="checkbox" name="day" value="4" />Thu</label>
+            <label><input type="checkbox" name="day" value="5" />Fri</label>
+            <label><input type="checkbox" name="day" value="6" />Sat</label>
+            <label><input type="checkbox" name="day" value="0" />Sun</label>
+          </fieldset>
+          <p class="hint">If your computer is asleep or off at that time, you are asked when you come back the same day.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="shortcut-heading">
+        <h2 id="shortcut-heading">Add-a-win shortcut</h2>
+        <div class="row">
+          <button type="button" id="shortcut" class="shortcut" aria-describedby="shortcut-hint"></button>
+          <span id="shortcut-hint" class="hint">Click, then press the new keys.</span>
+        </div>
+        <p id="shortcut-warning" class="status error" hidden></p>
+      </section>
+
+      <section aria-labelledby="startup-heading">
+        <h2 id="startup-heading">Startup</h2>
+        <label class="check">
+          <input type="checkbox" id="open-at-login" />
+          Start Win Log at login
+        </label>
+        <p id="login-note" class="hint" hidden>Saved, but only takes effect in the installed app, not with npm start.</p>
+      </section>
+
+      <div class="actions footer">
+        <span id="status" class="status" role="status"></span>
+        <button id="save" type="submit" disabled>Save</button>
+      </div>
+    </form>
+  </body>
+</html>
