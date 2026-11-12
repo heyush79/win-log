@@ -1,0 +1,200 @@
+# Builds the Mac and Windows installers when a version tag (for example v1.0.0)
+# is pushed, then publishes them on the GitHub Releases page.
+#
+# Signing is optional. Without the signing secrets the builds are unsigned.
+# Secrets used (Settings > Secrets and variables > Actions):
+#   MAC_CSC_LINK, MAC_CSC_KEY_PASSWORD           Developer ID Application .p12 (base64) and its password
+#   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID   notarization (Mac)
+#   WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD           code signing .pfx (base64) and its password
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            script: dist:mac
+          - os: windows-latest
+            script: dist:win
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Check that the tag matches package.json
+        shell: bash
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          package_version="$(node -p "require('./package.json').version" | tr -d '\r')"
+          if [ "$tag_version" != "$package_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match the version in package.json ($package_version). Set \"version\" in package.json to $tag_version, or tag the right commit."
+            exit 1
+          fi
+          echo "Building version $package_version"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the installer
+        shell: bash
+        env:
+          SCRIPT: ${{ matrix.script }}
+          # Pick the Mac or Windows certificate. The final || '' matters:
+          # without it an unset secret would become the text "false".
+          CSC_LINK: ${{ (runner.os == 'macOS' && secrets.MAC_CSC_LINK) || (runner.os == 'Windows' && secrets.WIN_CSC_LINK) || '' }}
+          CSC_KEY_PASSWORD: ${{ (runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD) || (runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD) || '' }}
+          # Mac notarization only. Empty and unused on Windows.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Secrets cannot be tested in "if:", so decide here.
+          if [ -z "${CSC_LINK:-}" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            echo "No signing certificate is set. This build is unsigned."
+          else
+            echo "A signing certificate is set. This build will be signed."
+          fi
+
+          # Apple only notarizes signed apps, so this also needs CSC_LINK.
+          if [ -z "${CSC_LINK:-}" ] || [ -z "${APPLE_ID:-}" ] || [ -z "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] || [ -z "${APPLE_TEAM_ID:-}" ]; then
+            unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+            if [ "$RUNNER_OS" = "macOS" ]; then
+              echo "Signing or Apple notarization details are missing. Notarization is skipped."
+            fi
+          fi
+
+          npm run "$SCRIPT"
+
+      - name: Upload the installers
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-${{ runner.os }}
+          # Only the release files, not blockmaps or other build leftovers.
+          path: |
+            dist/Win-Log-*-mac.dmg
+            dist/Win-Log-*-mac.zip
+            dist/Win-Log-*-windows-setup.exe
+          if-no-files-found: error
+          retention-days: 5
+          # A re-run of this job replaces its earlier upload instead of failing.
+          overwrite: true
+
+  release:
+    name: Publish the release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the code (for CHANGELOG.md)
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download the installers
+        uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Write the release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+
+          # The CHANGELOG.md section for this version: the lines between
+          # "## [<version>]" and the next "## [" heading.
+          if [ -f CHANGELOG.md ]; then
+            awk -v heading="## [$version]" '
+              index($0, heading) == 1 { found = 1; next }
+              found && /^## \[/ { exit }
+              found { print }
+            ' CHANGELOG.md > changelog-section.md
+          else
+            : > changelog-section.md
+          fi
+
+          if grep -q '[^[:space:]]' changelog-section.md; then
+            cat changelog-section.md > notes.md
+            echo "GENERATE_NOTES=false" >> "$GITHUB_ENV"
+          else
+            echo "No CHANGELOG.md section for $version. GitHub will generate the notes."
+            : > notes.md
+            echo "GENERATE_NOTES=true" >> "$GITHUB_ENV"
+          fi
+
+          # Short install help. Backticks are escaped because $version is expanded.
+          cat >> notes.md <<EOF
+
+          ## Install
+
+          **macOS 13 or later:** download \`Win-Log-$version-mac.dmg\`, open it and drag Win Log to Applications. Then open Win Log from Applications.
+          If macOS says it could not verify the app, Control-click (or right-click) Win Log in Applications, choose Open, then Open again.
+          On macOS 15 or later, that does not work. Instead, try to open Win Log once and click "Done" in the warning (not "Move to Trash"). Then go to System Settings > Privacy & Security, scroll down and click "Open Anyway".
+          If macOS says the app "is damaged", do not move it to the Trash. Run this in Terminal, then open Win Log again: \`xattr -cr "/Applications/Win Log.app"\`
+          Win Log runs in the menu bar. Look for the star at the top right of the screen.
+
+          **Windows 10 or 11:** download \`Win-Log-$version-windows-setup.exe\` and run it.
+          If you see "Windows protected your PC", click "More info", then "Run anyway".
+          Win Log runs in the system tray. Look for the star at the bottom right. It may be hidden behind the "^" (Show hidden icons) arrow.
+          EOF
+
+          echo "----- notes.md -----"
+          cat notes.md
+
+      - name: Create the release and upload the installers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          files=(
+            "release-assets/Win-Log-$version-mac.dmg"
+            "release-assets/Win-Log-$version-mac.zip"
+            "release-assets/Win-Log-$version-windows-setup.exe"
+          )
+
+          # Stop if any expected installer is missing.
+          for file in "${files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error::Missing $file. Files that were built:"
+              ls -la release-assets
+              exit 1
+            fi
+          done
+
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists. Replacing its files."
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            extra=()
+            if [ "$GENERATE_NOTES" = "true" ]; then
+              extra+=(--generate-notes)
+            fi
+            gh release create "$GITHUB_REF_NAME" "${files[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "Win Log $version" \
+              --notes-file notes.md \
+              "${extra[@]}"
+          fi

@@ -640,3 +640,30 @@ test('backup folder: syncBackupFolder does nothing when no folder is set, and ne
   await store.syncBackupFolder(); // folder gone: must not throw
   assert.equal(store.getBackupFolderStatus().error, 'ENOENT');
 });
+
+test('hasUnfinishedWrites is true only while a save or a folder copy is being written', async (t) => {
+  const { folder, store } = await storeWithBackupFolder(t);
+  assert.equal(store.hasUnfinishedWrites(), false);
+
+  const save = store.addEntries([fullEntry('a', 'First')]);
+  assert.equal(store.hasUnfinishedWrites(), true, 'a save was started');
+  await save;
+  await store.flush();
+  assert.equal(store.hasUnfinishedWrites(), false);
+
+  const settings = store.updateSettings({ reminderTime: '17:00' });
+  assert.equal(store.hasUnfinishedWrites(), true, 'settings count too');
+  await settings;
+  assert.equal(store.hasUnfinishedWrites(), false);
+
+  await store.setBackupFolder(folder);
+  const withCopy = store.addEntries([fullEntry('b', 'Second')]);
+  await withCopy; // the copy to the backup folder is still on its way
+  await store.flush();
+  assert.equal(store.hasUnfinishedWrites(), false);
+
+  // A failed save is finished too.
+  await fsp.mkdir(path.join(store.paths.dir, 'wins.json.tmp'));
+  await assert.rejects(store.addEntries([fullEntry('c', 'Fails')]));
+  assert.equal(store.hasUnfinishedWrites(), false);
+});

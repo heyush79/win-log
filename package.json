@@ -1,16 +1,29 @@
 {
   "name": "win-log",
   "productName": "Win Log",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Asks what you did today, so you remember your wins at review time.",
+  "author": "Ayush Bundela",
+  "license": "MIT",
+  "homepage": "https://ayushcodes.github.io/win-log/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ayushCodes/win-log.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ayushCodes/win-log/issues"
+  },
   "private": true,
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
     "test": "node --test",
-    "icons": "electron scripts/make-icons.js"
+    "icons": "electron scripts/make-icons.js",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:win": "electron-builder --win --publish never"
   },
   "devDependencies": {
-    "electron": "^45.3.1"
+    "electron": "^45.3.1",
+    "electron-builder": "^26.18.0"
   }
 }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Entitlements for unsigned ("ad-hoc" signed) builds. See electron-builder.js. -->
+<plist version="1.0">
+  <dict>
+    <!-- The JavaScript engine inside Electron creates machine code while the app runs. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <!-- Without a Developer ID there is no team to match, so the app could not load its
+         own Electron framework under the hardened runtime. This lets it. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

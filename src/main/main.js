@@ -11,6 +11,11 @@ const { startReminder } = require('./reminder');
 const { initShortcut, isShortcutActive, currentShortcut, unregisterShortcuts } = require('./shortcut');
 const { setUpLoginItemOnFirstRun, syncLoginItemSetting } = require('./loginItem');
 
+// The same id as appId in electron-builder.js. Windows uses it to tie the running app
+// to its Start Menu shortcut and to name the "start at login" entry.
+const APP_ID = 'io.github.ayushcodes.winlog';
+if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
+
 // One running copy only, so two processes never write the same file.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -21,20 +26,31 @@ if (!app.requestSingleInstanceLock()) {
 function start() {
   const store = createStore(app.getPath('userData'));
 
-  // Opening Win Log again while it is running shows that it is there.
+  // Opening Win Log again while it is running shows that it is there. Windows starts a
+  // second copy (which quits at once); macOS sends "activate" to the running one.
   app.on('second-instance', () => showEntryWindow());
+  app.on('activate', (_event, hasVisibleWindows) => {
+    if (!hasVisibleWindows && app.isReady()) showEntryWindow();
+  });
 
   // Closing the last window must not quit: the app lives in the tray.
   app.on('window-all-closed', () => {});
 
-  // Let any save in progress finish before the process exits.
+  // Let a save that is in progress finish before the process exits.
+  //
+  // Only when there is one. Pausing every quit caused trouble: when the quit comes from
+  // the system (Cmd+Q, log out, shut down, a termination signal) a paused quit can show
+  // up as "Win Log interrupted logout". And quitting again from inside this handler runs
+  // inside Electron's own quit call, which then forgets that it is quitting: the windows
+  // close but the app stays. So: do not pause unless needed, and retry on a fresh turn
+  // of the event loop (setImmediate), never from a promise callback.
   let savesFlushed = false;
   app.on('before-quit', (event) => {
-    if (savesFlushed) return;
+    if (savesFlushed || !store.hasUnfinishedWrites()) return;
     event.preventDefault();
     store.flush().finally(() => {
       savesFlushed = true;
-      app.quit();
+      setImmediate(() => app.quit());
     });
   });
 

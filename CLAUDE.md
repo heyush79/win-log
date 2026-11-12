@@ -88,6 +88,7 @@ plain text.
 - `src/preload/preload.js` exposes a small `window.winlog` API through `contextBridge`.
 - `src/renderer/<entry|wins|export|settings|about|welcome>/` one HTML + JS file per window,
   shared `common.css`.
+- `electron-builder.js` packaging config; `build/` also holds the Mac entitlements files.
 - `assets/` icons used by the running app: `icon.svg` and `tray-mac.svg` (sources), `icon.png`,
   `trayTemplate.png` + `@2x`, `tray.ico`. `build/` icons for the installers (`icon.icns`,
   `icon.ico`, `icon.png`). All of them are made by `scripts/make-icons.js` (`npm run icons`).
@@ -144,7 +145,13 @@ plain text.
 
 - Keep the `Tray` in a module-level variable (otherwise it is garbage collected).
 - Mac icon is a template image (`trayTemplate.png` + `@2x`); Windows icon is a multi-size `.ico`.
-- `LSUIElement` is set in `electron-builder.yml`; also call `app.dock.hide()`.
+- `LSUIElement` is set in `electron-builder.js`; also call `app.dock.hide()`.
+- Opening Win Log again while it runs opens "Add a win" (`second-instance` on Windows,
+  `activate` on Mac), so people can see it is there even without a Dock icon.
+- Quitting: `before-quit` pauses the quit only while a save is really in progress
+  (`store.hasUnfinishedWrites()`), and quits again with `setImmediate`, never from a promise
+  callback. Pausing every quit left the app running after Cmd+Q, logout or a termination
+  signal, because the second `app.quit()` ran inside Electron's own quit call.
 - Keep a minimal application menu with Edit roles so copy/paste works on Mac.
 - Every window: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`,
   `spellcheck: false`, CSP `default-src 'self'`, navigation, `window.open` and webviews blocked.
@@ -163,11 +170,33 @@ plain text.
 - `npm start` run the app in development.
 - `npm test` run unit tests (`node --test`).
 - `npm run icons` rebuild every icon file from `assets/icon.svg` and `assets/tray-mac.svg`.
-- `npm run dist:mac` / `npm run dist:win` build signed installers (need signing credentials;
-  never commit them).
+- `npm run dist:mac` (on a Mac) / `npm run dist:win` (on Windows) build the installers into
+  `dist/`. Both pass `--publish never`.
 
-## Release
+## Packaging and release (free, GitHub only)
 
-Public release. Mac: Developer ID signing, hardened runtime, notarization, universal `.dmg`.
-Windows: signed NSIS installer. Launch-at-login and the no-dock-icon behaviour can only be
-verified in a packaged build, not with `npm start`.
+- `electron-builder.js` is the packaging config. `appId` `io.github.ayushcodes.winlog` (also
+  `APP_ID` in `main.js`), `productName` "Win Log". Only `src/`, `assets/` and `package.json` go
+  into the app. `publish: null`: there is no auto-update.
+- Mac: universal `.dmg` and `.zip` (`Win-Log-<version>-mac.*`), `LSUIElement`, hardened runtime,
+  entitlements. Needs macOS 13 or later (Electron 45).
+- Windows: one-click NSIS installer for the current user, no admin rights, Start Menu shortcut,
+  x64 (`Win-Log-<version>-windows-setup.exe`). Uninstalling keeps the user's data.
+- Builds are unsigned by default. On Mac that means ad-hoc signed (`identity: '-'` with
+  `build/entitlements.mac.adhoc.plist`), because Apple Silicon will not start an app with no
+  signature. Real signing and notarization switch on only when a certificate is in the
+  environment: `CSC_LINK` + `CSC_KEY_PASSWORD` (or `CSC_NAME`), plus `APPLE_ID`,
+  `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` for notarization; `WIN_CSC_LINK` +
+  `WIN_CSC_KEY_PASSWORD` on Windows. In GitHub Actions these come from the secrets
+  `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`,
+  `APPLE_TEAM_ID`, `WIN_CSC_LINK`, `WIN_CSC_KEY_PASSWORD`. Never commit credentials.
+- Electron fuses are set in the config: no run-as-Node, no `NODE_OPTIONS`, no `--inspect`,
+  load the app only from the asar.
+- `.github/workflows/ci.yml`: `npm test` on macOS and Windows for every push and pull request.
+- `.github/workflows/release.yml`: on a `v*` tag, checks that the tag matches `package.json`,
+  builds on macOS and Windows, and publishes a GitHub Release with the three files using only
+  the built-in `GITHUB_TOKEN`. Release notes come from the version's section in `CHANGELOG.md`.
+- The GitHub owner and repo name appear in `package.json`, `src/lib/links.js`,
+  `electron-builder.js` and `docs/config.js`.
+- Launch-at-login and the no-dock-icon behaviour can only be verified in a packaged build, not
+  with `npm start`. See `RELEASE.md` for the release steps and the hand-test checklist.

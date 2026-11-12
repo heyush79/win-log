@@ -206,9 +206,21 @@ function createStore(dir, { now = () => new Date(), platform = process.platform,
   let folderQueue = Promise.resolve(); // never rejects
   let folderStatus = { savedAt: null, error: null }; // result of the latest copy this session
 
+  let unfinished = 0; // saves and folder copies that were started and have not ended yet
+
+  /** Counts a piece of work as unfinished until its promise settles. Returns the same promise. */
+  function track(promise) {
+    unfinished++;
+    const done = () => {
+      unfinished--;
+    };
+    promise.then(done, done);
+    return promise;
+  }
+
   /** Runs tasks one at a time. The returned promise rejects if this task fails; the queue keeps going. */
   function enqueue(task) {
-    const run = queue.then(task);
+    const run = track(queue.then(task));
     queue = run.catch(() => {});
     return run;
   }
@@ -266,24 +278,26 @@ function createStore(dir, { now = () => new Date(), platform = process.platform,
   function copyToBackupFolder(text) {
     const folder = settings ? settings.backupFolder : null;
     if (!folder) return Promise.resolve();
-    const run = folderQueue.then(async () => {
-      try {
-        const file = path.join(folder, folderBackupName(device, localDate(now())));
-        await writeFileAtomic(file, text, `${file}.winlog-tmp`);
-        folderStatus = { savedAt: now(), error: null };
-      } catch (err) {
-        folderStatus = { savedAt: folderStatus.savedAt, error: err.code || 'ERROR' };
-        return;
-      }
-      try {
-        const names = await fsp.readdir(folder);
-        for (const old of folderBackupsToDelete(names, device, BACKUPS_KEPT)) {
-          await fsp.rm(path.join(folder, old), { force: true });
+    const run = track(
+      folderQueue.then(async () => {
+        try {
+          const file = path.join(folder, folderBackupName(device, localDate(now())));
+          await writeFileAtomic(file, text, `${file}.winlog-tmp`);
+          folderStatus = { savedAt: now(), error: null };
+        } catch (err) {
+          folderStatus = { savedAt: folderStatus.savedAt, error: err.code || 'ERROR' };
+          return;
         }
-      } catch {
-        // The copy itself is saved; tidying up can wait for the next one.
-      }
-    });
+        try {
+          const names = await fsp.readdir(folder);
+          for (const old of folderBackupsToDelete(names, device, BACKUPS_KEPT)) {
+            await fsp.rm(path.join(folder, old), { force: true });
+          }
+        } catch {
+          // The copy itself is saved; tidying up can wait for the next one.
+        }
+      })
+    );
     folderQueue = run;
     return run;
   }
@@ -482,6 +496,11 @@ function createStore(dir, { now = () => new Date(), platform = process.platform,
     });
   }
 
+  /** True while a save, or a copy to the backup folder, is still being written. */
+  function hasUnfinishedWrites() {
+    return unfinished > 0;
+  }
+
   /**
    * Resolves when every queued save has finished. A copy to the backup folder gets a
    * few seconds to finish too, but a folder that hangs cannot stop the app from quitting.
@@ -504,6 +523,7 @@ function createStore(dir, { now = () => new Date(), platform = process.platform,
     setBackupFolder,
     syncBackupFolder,
     getBackupFolderStatus,
+    hasUnfinishedWrites,
     flush,
     paths: { dir, winsPath, settingsPath, backupDir },
   };
