@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest an idea for Win Log.
+title: "Idea: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea.
+
+        Win Log aims to stay small and private. It keeps all data on your computer and makes no network connections. Ideas that need an account, a server or the internet will not be added, and some good ideas may be left out to keep the app simple.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do? What makes it hard today?
+      placeholder: "At review time I want to ..."
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How could Win Log help? Keep it short and simple.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other ways you tried or thought about, if any.
+    validations:
+      required: false

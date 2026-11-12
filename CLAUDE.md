@@ -93,6 +93,10 @@ plain text.
   `trayTemplate.png` + `@2x`, `tray.ico`. `build/` icons for the installers (`icon.icns`,
   `icon.ico`, `icon.png`). All of them are made by `scripts/make-icons.js` (`npm run icons`).
 - `test/` holds `node:test` tests.
+- `docs/` the website (see Website) and `docs/screenshots/` for the README.
+- Documents at the root: `README.md`, `PRIVACY.md`, `CHANGELOG.md` (one line per entry; the
+  release notes are copied from it), `CONTRIBUTING.md`, `RELEASE.md`, `LICENSE` (MIT).
+  `.github/ISSUE_TEMPLATE/` has the bug and feature forms.
 
 ## Data
 
