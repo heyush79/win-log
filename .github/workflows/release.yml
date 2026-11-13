@@ -25,9 +25,9 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            script: dist:mac
+            target: --mac
           - os: windows-latest
-            script: dist:win
+            target: --win --x64
     steps:
       - name: Check out the code
         uses: actions/checkout@v7
@@ -57,7 +57,7 @@ jobs:
       - name: Build the installer
         shell: bash
         env:
-          SCRIPT: ${{ matrix.script }}
+          TARGET: ${{ matrix.target }}
           # Pick the Mac or Windows certificate. The final || '' matters:
           # without it an unset secret would become the text "false".
           CSC_LINK: ${{ (runner.os == 'macOS' && secrets.MAC_CSC_LINK) || (runner.os == 'Windows' && secrets.WIN_CSC_LINK) || '' }}
@@ -84,7 +84,19 @@ jobs:
             fi
           fi
 
-          npm run "$SCRIPT"
+          # What the runner sees. Kept in the log so a silent failure can be understood.
+          echo "node $(node --version), npm $(npm --version), $RUNNER_OS $RUNNER_ARCH"
+          echo "electron-builder: $(node node_modules/electron-builder/cli.js --version 2>&1 | tail -n 1)"
+          echo "ELECTRON_RUN_AS_NODE=${ELECTRON_RUN_AS_NODE:-<unset>}"
+          ls node_modules/.bin | grep -i electron || true
+
+          # Call the CLI through node directly: no npm shim, no cmd.exe quoting on Windows.
+          # The step shell runs with -e, so a non-zero exit stops the step by itself.
+          # publish: null in electron-builder.js already means "never upload".
+          set -x
+          # shellcheck disable=SC2086
+          node node_modules/electron-builder/cli.js $TARGET
+          set +x
 
           echo "Files in dist/ after the build:"
           ls -la dist
