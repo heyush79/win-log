@@ -5,13 +5,13 @@
   "description": "Asks what you did today, so you remember your wins at review time.",
   "author": "Ayush Bundela",
   "license": "MIT",
-  "homepage": "https://ayushcodes.github.io/win-log/",
+  "homepage": "https://heyush79.github.io/win-log/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ayushCodes/win-log.git"
+    "url": "git+https://github.com/heyush79/win-log.git"
   },
   "bugs": {
-    "url": "https://github.com/ayushCodes/win-log/issues"
+    "url": "https://github.com/heyush79/win-log/issues"
   },
   "private": true,
   "main": "src/main/main.js",

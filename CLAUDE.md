@@ -205,7 +205,7 @@ plain text.
 
 ## Packaging and release (free, GitHub only)
 
-- `electron-builder.js` is the packaging config. `appId` `io.github.ayushcodes.winlog` (also
+- `electron-builder.js` is the packaging config. `appId` `io.github.heyush79.winlog` (also
   `APP_ID` in `main.js`), `productName` "Win Log". Only `src/`, `assets/` and `package.json` go
   into the app. `publish: null`: there is no auto-update.
 - Mac: universal `.dmg` and `.zip` (`Win-Log-<version>-mac.*`), `LSUIElement`, hardened runtime,

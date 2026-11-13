@@ -44,5 +44,5 @@ First public release.
 - Privacy: no account, no server, no analytics, no tracking, and no network connections. There is no auto-updater.
 - Downloads on GitHub Releases: a universal Mac app for Apple Silicon and Intel (`.dmg` and `.zip`, macOS 13 or later) and a Windows installer (`.exe`, Windows 10 or 11). The Windows installer is for x64, installs for your user only without admin rights, and also runs on Windows on ARM through emulation.
 
-[Unreleased]: https://github.com/ayushCodes/win-log/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/ayushCodes/win-log/releases/tag/v1.0.0
+[Unreleased]: https://github.com/heyush79/win-log/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/heyush79/win-log/releases/tag/v1.0.0

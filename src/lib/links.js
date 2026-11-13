@@ -6,7 +6,7 @@
 // The GitHub owner and repository name are set here, in package.json ("repository"),
 // in electron-builder.yml (appId) and in docs/config.js (the website).
 
-const REPO_OWNER = 'ayushCodes';
+const REPO_OWNER = 'heyush79';
 const REPO_NAME = 'win-log';
 const REPO_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}`;
 

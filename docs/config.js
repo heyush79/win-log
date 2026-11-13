@@ -8,7 +8,7 @@
 // for visitors who have JavaScript turned off. To keep those right too, search
 // index.html for the old owner name and replace it.
 window.WINLOG_SITE = {
-  owner: 'ayushCodes', // GitHub user or organization
+  owner: 'heyush79', // GitHub user or organization
   repo: 'win-log', // repository name
   branch: 'main', // branch that holds LICENSE and PRIVACY.md
 };

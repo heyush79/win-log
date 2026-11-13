@@ -217,7 +217,7 @@ full [privacy policy](PRIVACY.md).
 You need [Node.js](https://nodejs.org/) 22.12 or later and git.
 
 ```sh
-git clone https://github.com/ayushCodes/win-log.git
+git clone https://github.com/heyush79/win-log.git
 cd win-log
 npm ci       # install the exact dev dependencies from package-lock.json
 npm start    # run the app in development
@@ -262,6 +262,6 @@ Bug reports and small, focused pull requests are welcome. Please read
 
 [MIT](LICENSE). Copyright (c) 2026 Ayush Bundela.
 
-[website]: https://ayushcodes.github.io/win-log/
-[releases]: https://github.com/ayushCodes/win-log/releases/latest
-[issues]: https://github.com/ayushCodes/win-log/issues
+[website]: https://heyush79.github.io/win-log/
+[releases]: https://github.com/heyush79/win-log/releases/latest
+[issues]: https://github.com/heyush79/win-log/issues

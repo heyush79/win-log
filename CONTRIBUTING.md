@@ -28,7 +28,7 @@ These keep Win Log simple and private. The full rules are in [CLAUDE.md](CLAUDE.
 You need [Node.js](https://nodejs.org/) 22.12 or later and git.
 
 ```sh
-git clone https://github.com/ayushCodes/win-log.git
+git clone https://github.com/heyush79/win-log.git
 cd win-log
 npm ci       # install the dev dependencies
 npm start    # run the app
@@ -71,4 +71,4 @@ By sending a pull request, you agree that your work is shared under the
 Be friendly and patient with everyone. Assume good intent. Keep discussions about the work, not
 the person.
 
-[new-issue]: https://github.com/ayushCodes/win-log/issues/new/choose
+[new-issue]: https://github.com/heyush79/win-log/issues/new/choose

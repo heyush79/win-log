@@ -83,7 +83,7 @@ in the normal data folder.
 
 ## The website
 
-The website at <https://ayushcodes.github.io/win-log/> is hosted by GitHub Pages, so GitHub
+The website at <https://heyush79.github.io/win-log/> is hosted by GitHub Pages, so GitHub
 serves the page to your browser. The page makes one request to the GitHub API to find the newest
 release, so the download links point to the latest version. As with any website, GitHub can see
 your IP address and browser details for these requests, under
@@ -111,7 +111,7 @@ see every past version in the project's history on GitHub.
 
 ## Questions
 
-Open an issue at <https://github.com/ayushCodes/win-log/issues>. Issues are public, so do not
+Open an issue at <https://github.com/heyush79/win-log/issues>. Issues are public, so do not
 include private details.
 
 [github-privacy]: https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement

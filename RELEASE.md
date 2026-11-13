@@ -14,7 +14,7 @@ Releases. None of this costs money unless you choose to add code signing (part 3
 
    ```sh
    git branch -M main
-   git remote add origin https://github.com/ayushCodes/win-log.git
+   git remote add origin https://github.com/heyush79/win-log.git
    git push -u origin main
    ```
 
@@ -27,7 +27,7 @@ If you use a different GitHub account or repository name, update the links. They
 `docs/config.js` (the website) and in the documents. This lists them all:
 
 ```sh
-grep -rni "ayushcodes" --exclude-dir=node_modules --exclude-dir=.git .
+grep -rni "heyush79" --exclude-dir=node_modules --exclude-dir=.git .
 ```
 
 ### Turn on the website
@@ -35,7 +35,7 @@ grep -rni "ayushcodes" --exclude-dir=node_modules --exclude-dir=.git .
 1. In the repository, open Settings > Pages.
 2. Under "Build and deployment", set Source to "Deploy from a branch".
 3. Choose the branch `main` and the folder `/docs`, then click Save.
-4. After a minute or two, the site is at <https://ayushcodes.github.io/win-log/>.
+4. After a minute or two, the site is at <https://heyush79.github.io/win-log/>.
 
 ### Let the workflow create releases
 
@@ -70,8 +70,8 @@ Win Log uses version numbers like `1.2.3` and tags like `v1.2.3`. In the steps b
    - At the bottom, add a link for the new version and update the "Unreleased" link:
 
      ```text
-     [Unreleased]: https://github.com/ayushCodes/win-log/compare/v1.1.0...HEAD
-     [1.1.0]: https://github.com/ayushCodes/win-log/releases/tag/v1.1.0
+     [Unreleased]: https://github.com/heyush79/win-log/compare/v1.1.0...HEAD
+     [1.1.0]: https://github.com/heyush79/win-log/releases/tag/v1.1.0
      ```
 
    Then commit it:
@@ -128,11 +128,11 @@ change the date in its heading and commit that first.
 ### Check the release
 
 1. In the Actions tab, the Release run has a green check mark.
-2. On the [Releases page](https://github.com/ayushCodes/win-log/releases), the newest release has
+2. On the [Releases page](https://github.com/heyush79/win-log/releases), the newest release has
    the right version and all three files, with the version in each file name.
 3. Read the release notes. They should show the version's section from `CHANGELOG.md` and the
    install help. If something is wrong, edit the release on GitHub and fix it.
-4. Open the [website](https://ayushcodes.github.io/win-log/). The download links should point to
+4. Open the [website](https://heyush79.github.io/win-log/). The download links should point to
    the new version.
 
 ### Test the downloads

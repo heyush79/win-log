@@ -13,7 +13,7 @@ const { setUpLoginItemOnFirstRun, syncLoginItemSetting } = require('./loginItem'
 
 // The same id as appId in electron-builder.js. Windows uses it to tie the running app
 // to its Start Menu shortcut and to name the "start at login" entry.
-const APP_ID = 'io.github.ayushcodes.winlog';
+const APP_ID = 'io.github.heyush79.winlog';
 if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
 
 // One running copy only, so two processes never write the same file.

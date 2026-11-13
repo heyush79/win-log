@@ -36,7 +36,7 @@ const macSigning = hasMacCertificate
 module.exports = {
   // The GitHub owner is also in package.json, src/lib/links.js and docs/config.js.
   // The same id is used in src/main/main.js (APP_ID).
-  appId: 'io.github.ayushcodes.winlog',
+  appId: 'io.github.heyush79.winlog',
   productName: 'Win Log',
   copyright: 'Copyright © 2026 Ayush Bundela',
 
