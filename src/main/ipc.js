@@ -286,7 +286,12 @@ function registerIpc(store, { onSettingsSaved, onWinsChanged }) {
     });
     if (canceled || !filePath) return { ok: false, canceled: true };
     if (await isInDataFolder(store, filePath)) return { ok: false, error: 'data-folder' };
-    await writeFileAtomic(filePath, `${result.text}\n`, `${filePath}.winlog-tmp`);
+    try {
+      await writeFileAtomic(filePath, `${result.text}\n`, `${filePath}.winlog-tmp`);
+    } catch (err) {
+      if (err.fileBusy) return { ok: false, error: 'file-busy' };
+      throw err;
+    }
     return { ok: true, count: result.count, fileName: path.basename(filePath) };
   });
 
@@ -307,7 +312,12 @@ function registerIpc(store, { onSettingsSaved, onWinsChanged }) {
     if (canceled || !filePath) return { ok: false, canceled: true };
     // Never write over the live files: Win Log's own folder is off limits.
     if (await isInDataFolder(store, filePath)) return { ok: false, error: 'data-folder' };
-    await writeFileAtomic(filePath, store.backupText(), `${filePath}.winlog-tmp`);
+    try {
+      await writeFileAtomic(filePath, store.backupText(), `${filePath}.winlog-tmp`);
+    } catch (err) {
+      if (err.fileBusy) return { ok: false, error: 'file-busy' };
+      throw err;
+    }
     return { ok: true, fileName: path.basename(filePath), count: store.getEntries().length };
   });
 

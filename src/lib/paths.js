@@ -15,6 +15,9 @@ const nodePath = require('node:path');
  */
 function isInside(folder, target, platform = process.platform) {
   const p = platform === 'win32' ? nodePath.win32 : nodePath.posix;
+  if (typeof folder !== 'string' || typeof target !== 'string' || !p.isAbsolute(folder) || !p.isAbsolute(target)) {
+    throw new Error('isInside needs two absolute paths');
+  }
   const ignoreCase = platform === 'win32' || platform === 'darwin';
   const clean = (value) => {
     const resolved = p.resolve(value);

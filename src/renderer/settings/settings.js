@@ -232,6 +232,7 @@ function renderData(view) {
 
 const DATA_ERRORS = {
   'data-folder': 'Choose a different folder. That one is where Win Log keeps its own files.',
+  'file-busy': 'That file is open in another program. Close it there, or choose another name.',
   'not-a-folder': 'That folder cannot be used. Choose another one.',
   'not-backup': 'That file is not a Win Log backup.',
   'newer-version': 'That backup was made by a newer version of Win Log. Update Win Log, then try again.',

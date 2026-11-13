@@ -157,6 +157,7 @@ async function syncDir(dir) {
  * `tmp` is the temporary file; pass a name of our own when `file` is in a folder the user chose.
  */
 async function writeFileAtomic(file, text, tmp = `${file}.tmp`) {
+  // A leftover temp file from a crash is replaced, never read.
   const fh = await fsp.open(tmp, 'w');
   try {
     await fh.writeFile(text, 'utf8');
@@ -168,6 +169,9 @@ async function writeFileAtomic(file, text, tmp = `${file}.tmp`) {
     await renameWithRetry(tmp, file);
   } catch (err) {
     await fsp.rm(tmp, { force: true }).catch(() => {}); // do not leave the temp file behind
+    // On Windows, EPERM/EBUSY usually means another program (antivirus, a sync client,
+    // an editor) still has the file open. Say so, so the message can be clear.
+    if (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'EACCES') err.fileBusy = true;
     throw err;
   }
   await syncDir(path.dirname(file));

@@ -10,7 +10,7 @@
   --border: #d2d2d7;
   --field: #ffffff;
   --field-border: #8a8a8f;
-  --accent: #a85f00;
+  --accent: #9c5800;
   --accent-fg: #ffffff;
   --accent-soft: #fbf0e0;
   --error: #c62828;
@@ -29,7 +29,7 @@
     --accent: #f0a020;
     --accent-fg: #1e1e1e;
     --accent-soft: #3b2f1b;
-    --error: #ef6b6b;
+    --error: #f48080;
   }
 }
 

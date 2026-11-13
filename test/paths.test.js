@@ -47,3 +47,11 @@ test('Windows: other drives, network shares and both kinds of slash', () => {
   assert.equal(isInside('\\\\server\\share\\Win Log', '\\\\server\\other\\Win Log\\wins.json', 'win32'), false);
   assert.equal(isInside(WIN_DATA, 'C:/Users/Sam/AppData/Roaming/Win Log/wins.json', 'win32'), true);
 });
+
+test('isInside refuses relative paths instead of guessing', () => {
+  assert.throws(() => isInside('/data', 'wins.json', 'linux'));
+  assert.throws(() => isInside('data', '/data/wins.json', 'linux'));
+  assert.throws(() => isInside('C:\\data', 'wins.json', 'win32'));
+  assert.equal(isInside('/data', '/data/x', 'win32'), true, 'a rooted path counts as absolute on Windows');
+  assert.throws(() => isInside(null, '/data', 'linux'));
+});

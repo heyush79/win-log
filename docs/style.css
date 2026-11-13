@@ -1,5 +1,5 @@
 /* Win Log website. Plain CSS: no framework, no build step, no web fonts.
-   Brand colours are warm amber: accent #a85f00 in light mode, #f0a020 in dark mode.
+   Brand colours are warm amber: accent #9c5800 in light mode, #f0a020 in dark mode.
    The page's Content Security Policy forbids inline styles, so all styles live here. */
 
 :root {
@@ -12,7 +12,7 @@
   --muted: #5c5348;
   --line: #e9e1d6;
   --line-strong: #d6c9b7;
-  --accent: #a85f00;
+  --accent: #9c5800;
   --accent-hover: #8a4e00;
   --accent-tint: #fcefdb;
   --accent-tint-text: #8a4e00;

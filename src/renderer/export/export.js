@@ -123,6 +123,8 @@ saveBtn.addEventListener('click', async () => {
     if (result.ok) await refresh(`Saved as ${result.fileName}.`);
     else if (result.error === 'data-folder') {
       setStatus('Choose a different folder. That one is where Win Log keeps its own files.', true);
+    } else if (result.error === 'file-busy') {
+      setStatus('That file is open in another program. Close it there, or choose another name.', true);
     } else if (!result.canceled) await refresh();
   } catch (err) {
     console.error(err);
