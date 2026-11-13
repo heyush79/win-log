@@ -86,15 +86,21 @@ jobs:
 
           npm run "$SCRIPT"
 
+          echo "Files in dist/ after the build:"
+          ls -la dist
+
       - name: Upload the installers
         uses: actions/upload-artifact@v7
         with:
           name: build-${{ runner.os }}
           # Only the release files, not blockmaps or other build leftovers.
+          # Any installer, whatever electron-builder named it. Blockmaps and
+          # debug files are left out. The release step gives the final names.
           path: |
-            dist/Win-Log-*-mac.dmg
-            dist/Win-Log-*-mac.zip
-            dist/Win-Log-*-windows-setup.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+            !dist/*.blockmap
           if-no-files-found: error
           retention-days: 5
           # A re-run of this job replaces its earlier upload instead of failing.
@@ -168,6 +174,23 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="${GITHUB_REF_NAME#v}"
+          echo "Files that were built:"
+          ls -la release-assets
+
+          # Give each installer its final name, whatever electron-builder called it.
+          # The website (docs/download.js) and the README look for these exact names.
+          rename_one() {
+            local pattern="$1" target="$2"
+            local found
+            found=$(find release-assets -maxdepth 1 -name "$pattern" ! -name "*.blockmap" | head -n 1)
+            if [ -n "$found" ] && [ "$found" != "$target" ]; then
+              mv "$found" "$target"
+            fi
+          }
+          rename_one "*.dmg" "release-assets/Win-Log-$version-mac.dmg"
+          rename_one "*.zip" "release-assets/Win-Log-$version-mac.zip"
+          rename_one "*.exe" "release-assets/Win-Log-$version-windows-setup.exe"
+
           files=(
             "release-assets/Win-Log-$version-mac.dmg"
             "release-assets/Win-Log-$version-mac.zip"
